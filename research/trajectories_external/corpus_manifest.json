@@ -1,0 +1,23 @@
+{
+  "built": "2026-09-24T16:39:48",
+  "min_revs": 8,
+  "repos": [
+    {
+      "repo": "BurntSushi/ripgrep",
+      "status": "ok",
+      "commit": "3fce3b5bb0236da2df6d99672afb8a719642eca7",
+      "how": "cloned",
+      "candidates": 111,
+      "files": 17,
+      "revisions": 410,
+      "shard": "research/trajectories_external/shards/ripgrep.jsonl",
+      "seconds": 269.0
+    }
+  ],
+  "totals": {
+    "files": 17,
+    "revisions": 410
+  },
+  "note": "No rename tracking: history restarts at a rename. Consecutive identical contents deduped.",
+  "reproduce": "python3 research/papers/p2_build_corpus.py"
+}

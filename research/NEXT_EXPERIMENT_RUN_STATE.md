@@ -130,3 +130,41 @@ python3 research/papers/verify_papers910.py
 21. registry update
 22. adversarial consistency audit
 23–24. manuscripts + PDFs, final commit
+
+---
+
+## Update: 2026-09-24 (experiment-first run)
+
+### P1 — complete
+1A Holm fixed + tested (`p1_multiplicity_v2.py`, 5 tests incl. FWER 0.0493)
+1B 500 partitions; 1C 200 partitions x 9 pairs; 1D 150 partitions + control
+Report: `research/P1_ROBUSTNESS_REPORT.md`. Every quoted number
+machine-verified against its artifact.
+
+### M — complete
+9 invariants incl. new I9 (artifact run-parameter provenance), adversarially
+tested. `research/methodology_validation.json`.
+
+### P2 — IN PROGRESS, two blockers found
+1. **BLOCKER (environment): the pilot's embedder cannot be reproduced here.**
+   No torch, no sentence-transformers, no BGE weight cache. Installing torch
+   (2 GB+) onto a box with exhausted swap was judged a worse trade than using
+   the embedder the fleet already serves. **Deviation from the brief's
+   representation list**: `nomic-embed-text` via the local ollama HTTP API
+   replaces BGE. BGE comparison is therefore *not available* and any claim
+   resting on "consistent across embedders" is unsupported until it is.
+2. **BLOCKER (resource): root partition is 100% full (~3.1 GB free).** Not
+   caused by this work (P2 footprint was 30 MB when discovered). Corpus caps
+   reduced to fit: MAX_TEXT 8 KB, gzipped shards (6x reduction), float32
+   embedding cache. A corpus-size experiment on this box is operating inside a
+   small budget, and disk exhaustion risks the whole machine, so no P2 run may
+   grow without check.
+
+Fixed en route: a global `url.git@github.com:.insteadOf=https://github.com/`
+rewrites github to SSH, which is denied for public repos and also breaks a
+partial clone's lazy blob fetch. Neutralised via `GIT_CONFIG_GLOBAL=/dev/null`
+in the corpus builder (root-cause fix, applies to every git call it makes).
+
+Scripts: `research/papers/p2_build_corpus.py`, `research/papers/p2_analysis.py`
+Tasks 2C identity / 2E overlap-killer / 2F dimensionality are implemented;
+2D direction and 2G prediction are not yet.
