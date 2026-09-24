@@ -808,7 +808,8 @@
     "chi_peak_loglog_slope_vs_N": 0.9967488211816492,
     "classification": "NO TRANSITION LOCATED: chi peaks at the edge of the nemesis grid at every node count, so no critical point was found inside the sweep and no scaling can be read from it",
     "transition_width_loglog_slope_vs_N": 0.793929964901132,
-    "note": "A tuned transition is not self-organized criticality: SOC requires the system to reach the critical point without an external control parameter, and nemesis_strength is one."
+    "note": "A tuned transition is not self-organized criticality: SOC requires the system to reach the critical point without an external control parameter, and nemesis_strength is one.",
+    "classifier_version": 2
   },
   "binary": "target/release/examples/empedocles_multiseed",
   "reproduce": "python3 research/papers/p10_fss.py",

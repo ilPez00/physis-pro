@@ -32,6 +32,13 @@ import numpy as np
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BIN = os.path.join(REPO, "target", "release", "examples", "empedocles_multiseed")
 OUT = os.path.join(REPO, "research", "p10_fss.json")
+# Bumped whenever the classification logic changes. A long-running process
+# holds the code it started with, so a late-finishing run writes diagnostics
+# from an OLD classifier. This happened four times in one session: in-flight
+# runs launched before a fix overwrote corrected artifacts with the wrong
+# verdict (once literally printing the opposite conclusion). The guard below
+# refuses to let an older classifier replace a newer one.
+CLASSIFIER_VERSION = 2
 
 # Dense across the region where the published nine points change character
 # (few giant clusters below ~0.006, many small ones above ~0.02).
@@ -93,6 +100,33 @@ def stats_for(rows):
     }
 
 
+def write_artifact(payload):
+    """Write the artifact, refusing to be reverted by a stale classifier.
+
+    A process that started before a classifier fix keeps the old logic in
+    memory and will happily overwrite good diagnostics with bad ones when it
+    finally finishes. Progress-durability fixes protect against kills; this
+    protects against late finishes, which is the failure that actually bit.
+    """
+    prev_v = None
+    try:
+        with open(OUT) as fh:
+            prev = json.load(fh)
+        prev_v = (prev.get("diagnostics") or {}).get("classifier_version")
+    except (OSError, ValueError):
+        prev = None
+    mine = (payload.get("diagnostics") or {}).get("classifier_version")
+    if prev_v is not None and mine is not None and prev_v > mine:
+        side = OUT.replace(".json", f"_cv{mine}.json")
+        with open(side, "w") as fh:
+            json.dump(payload, fh, indent=2)
+        print(f"REFUSED to overwrite {OUT} (classifier v{prev_v}) with v{mine}; "
+              f"wrote {side}. Recompute with --recompute instead.")
+        return
+    with open(OUT, "w") as fh:
+        json.dump(payload, fh, indent=2)
+
+
 def compute_diagnostics(curves):
     """Scaling diagnostics from the completed node-count curves."""
     # ---- scaling diagnostics -------------------------------------------
@@ -142,6 +176,9 @@ def compute_diagnostics(curves):
 
     # Does the peak grow with N (critical scaling) or saturate (ordinary
     # crossover)? Log-log slope of chi_peak vs N.
+    if not peaks:
+        diag["classification"] = "no curves: nothing to diagnose"
+        return diag
     ns = np.array([p["nodes"] for p in peaks], dtype=float)
     ch = np.array([p["chi_peak"] for p in peaks], dtype=float)
     ok = (ch > 0) & np.isfinite(ch)
@@ -159,7 +196,8 @@ def compute_diagnostics(curves):
             shrink = float(np.polyfit(np.log(wn), np.log(wv), 1)[0])
 
     chi_over_N = [x["chi_over_N"] for x in diag["chi_over_N_by_N"]]
-    flat_chi_over_N = (max(chi_over_N) - min(chi_over_N)) / max(chi_over_N) < 0.30
+    flat_chi_over_N = (bool(chi_over_N) and
+                       (max(chi_over_N) - min(chi_over_N)) / max(chi_over_N) < 0.30)
     if slope is None:
         kind = "indeterminate (too few points)"
     elif diag["chi_peak_at_sweep_boundary"]:
@@ -187,6 +225,7 @@ def compute_diagnostics(curves):
     diag["note"] = ("A tuned transition is not self-organized criticality: SOC "
                     "requires the system to reach the critical point without an "
                     "external control parameter, and nemesis_strength is one.")
+    diag["classifier_version"] = CLASSIFIER_VERSION
     return diag
 
 
@@ -211,7 +250,7 @@ def main():
         d = json.load(open(OUT))
         d["diagnostics"] = compute_diagnostics(d["curves"])
         d["partial"] = None
-        json.dump(d, open(OUT, "w"), indent=2)
+        write_artifact(d)
         g = d["diagnostics"]
         print("=== recomputed diagnostics (no simulation) ===")
         print("  chi_peak_at_sweep_boundary:", g.get("chi_peak_at_sweep_boundary"))
@@ -243,13 +282,11 @@ def main():
         # wrote only at the very end, so each kill (and this host kills long
         # runs) discarded the entire sweep. Diagnostics come later, once all
         # points exist; a partial artifact still carries the raw curves.
-        with open(OUT, "w") as fh:
-            json.dump({"nemesis_grid": NEMESIS, "curves": curves,
-                       "diagnostics": None,
+        write_artifact({"nemesis_grid": NEMESIS, "curves": curves,
+                       "diagnostics": {"classifier_version": CLASSIFIER_VERSION},
                        "partial": [c["nodes"] for c in curves],
                        "binary": os.path.relpath(BIN, REPO),
-                       "reproduce": "python3 research/papers/p10_fss.py"}, fh,
-                      indent=2)
+                       "reproduce": "python3 research/papers/p10_fss.py"})
 
 
     diag = compute_diagnostics(curves)
@@ -258,8 +295,7 @@ def main():
     out = {"nemesis_grid": NEMESIS, "curves": curves, "diagnostics": diag,
            "binary": os.path.relpath(BIN, REPO),
            "reproduce": "python3 research/papers/p10_fss.py"}
-    with open(OUT, "w") as fh:
-        json.dump(out, fh, indent=2)
+    write_artifact(out)
 
     print("\n=== scaling diagnostics ===")
     for p in peaks:
