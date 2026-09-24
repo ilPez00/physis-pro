@@ -1,0 +1,247 @@
+{
+  "_README": [
+    "Canonical results registry for the Physis paper portfolio.",
+    "Every headline number used in a manuscript MUST appear here as a claim.",
+    "Papers cite a claim by ID; no important number lives only as hand-copied prose.",
+    "Run `python3 validate.py` to check that (a) every claim traces to a real value",
+    "in its result file, and (b) no two papers report incompatible values for the",
+    "same claim ID. The validator fails loudly rather than repairing silently.",
+    "Status vocabulary: established | suggestive | null | falsified | exploratory | superseded"
+  ],
+  "registry_version": "1.0.0",
+  "generated": "2026-09-24",
+  "repo": "/home/gio/dev/physis-pro",
+  "git_branch_at_write": "agent/P-037-substrate",
+  "claims": [
+    {
+      "claim_id": "CORPUS-001",
+      "statement": "Corpus size: 75,933 labelled actions across 402 sessions from 4 harnesses on 3 machines, one user.",
+      "papers": [
+        "paper1_agent_priors",
+        "paper9_dataset"
+      ],
+      "experiment": "E74",
+      "result_file": "research/e74_replication_results.json",
+      "json_path": "corpus.actions",
+      "source_script": "research/papers/e74_replication.py",
+      "metric_definition": "count of per-action rows carrying an outcome label",
+      "inference_unit": "action",
+      "seed": null,
+      "n": 75933,
+      "uncertainty": "exact count, not estimated",
+      "status": "established",
+      "reproduce": "python3 research/papers/e74_replication.py"
+    },
+    {
+      "claim_id": "CORPUS-002",
+      "statement": "Session count is 402; median session length is 101 actions; max is 2014.",
+      "papers": [
+        "paper1_agent_priors",
+        "paper9_dataset"
+      ],
+      "experiment": "E74",
+      "result_file": "research/e74_replication_results.json",
+      "json_path": "corpus.sessions",
+      "source_script": "research/papers/e74_replication.py",
+      "metric_definition": "sessions = distinct session ids; median/max actions per session",
+      "inference_unit": "session",
+      "seed": null,
+      "n": 402,
+      "uncertainty": "exact count",
+      "status": "established",
+      "reproduce": "python3 research/papers/e74_replication.py",
+      "note": "Previously reported in both papers as median 137; that was wrong. Corrected to 101 on 2026-09-24."
+    },
+    {
+      "claim_id": "XFER-001",
+      "statement": "Cross-harness failure-prior transfer: under session-level bootstrap only 1 of 12 source->target pairs has a CI excluding chance in the positive direction (cline->opencode, 0.534 [0.509,0.559]).",
+      "papers": [
+        "paper1_agent_priors"
+      ],
+      "experiment": "E74",
+      "result_file": "research/bootstrap_unit_check.json",
+      "json_path": "counts.session",
+      "source_script": "research/papers/check_bootstrap_unit.py",
+      "metric_definition": "count of pairs whose session-level 95% bootstrap CI lies entirely above AUC 0.5",
+      "inference_unit": "session",
+      "seed": "bootstrap seeds recorded in script",
+      "n": 12,
+      "uncertainty": "session-level bootstrap, 95% CI",
+      "status": "established",
+      "reproduce": "python3 research/papers/check_bootstrap_unit.py"
+    },
+    {
+      "claim_id": "XFER-002",
+      "statement": "Under the action-level bootstrap the same data yields 2 of 12 pairs above chance (cline->opencode and opencode->cline). The action-level bootstrap is the wrong inferential unit for this clustered data.",
+      "papers": [
+        "paper1_agent_priors",
+        "paper9_dataset"
+      ],
+      "experiment": "E74",
+      "result_file": "research/bootstrap_unit_check.json",
+      "json_path": "counts.action",
+      "source_script": "research/papers/check_bootstrap_unit.py",
+      "metric_definition": "count of pairs whose action-level 95% bootstrap CI lies entirely above AUC 0.5",
+      "inference_unit": "action",
+      "seed": "bootstrap seeds recorded in script",
+      "n": 12,
+      "uncertainty": "action-level bootstrap, 95% CI (reported only to demonstrate the error)",
+      "status": "established",
+      "reproduce": "python3 research/papers/check_bootstrap_unit.py"
+    },
+    {
+      "claim_id": "XFER-003",
+      "statement": "The action-level bootstrap changes the significance verdict for 4 of the 12 pairs relative to session-level: 3 pairs become distinguishable from chance that were not, and 1 that was distinguishable (significantly below chance) stops being so.",
+      "papers": [
+        "paper1_agent_priors",
+        "paper9_dataset"
+      ],
+      "experiment": "E74",
+      "result_file": "research/bootstrap_unit_check.json",
+      "json_path": "DERIVED: see validate.py check XFER-003",
+      "source_script": "research/papers/check_bootstrap_unit.py",
+      "metric_definition": "pairs where (session CI contains 0.5) XOR (action CI contains 0.5), split by direction of change",
+      "inference_unit": "comparison of both units over 12 pairs",
+      "seed": null,
+      "n": 12,
+      "uncertainty": "exact enumeration over the stored intervals, no resampling",
+      "status": "established",
+      "reproduce": "python3 research/results_registry/validate.py",
+      "note": "THIS IS THE CLAIM THAT WAS PREVIOUSLY INCONSISTENT ACROSS PAPERS. paper9_dataset.tex asserted 'four chance-level comparisons turned apparently significant', which double-counted: only 3 gained significance and 1 lost it, and of the 3 that gained, 2 are significantly BELOW chance, not above. paper1 said 2 (action) vs 1 (session) above chance, which is correct. Fixed 2026-09-24."
+    },
+    {
+      "claim_id": "XFER-004",
+      "statement": "6 pairs are significantly below chance under the action-level bootstrap and 5 under session-level; the unlabelled 'does not transfer' headline conceals that most failures are anti-predictive, not merely uninformative.",
+      "papers": [
+        "paper1_agent_priors"
+      ],
+      "experiment": "E74",
+      "result_file": "research/bootstrap_unit_check.json",
+      "json_path": "DERIVED: count of CIs entirely below 0.5",
+      "source_script": "research/papers/check_bootstrap_unit.py",
+      "metric_definition": "count of pairs whose 95% CI lies entirely below AUC 0.5",
+      "inference_unit": "session (primary) and action (for comparison)",
+      "seed": null,
+      "n": 12,
+      "uncertainty": "95% bootstrap CI",
+      "status": "established",
+      "reproduce": "python3 research/results_registry/validate.py"
+    },
+    {
+      "claim_id": "PROP-001",
+      "statement": "Embedding geometry as a proposer: top-3 containment of the rater's own cell is 0.668 under a random split and 0.541 under a sequential split, against a matched permuted-label null of 0.159 and 0.265 respectively.",
+      "papers": [
+        "paper4_propose_certify"
+      ],
+      "experiment": "E21",
+      "result_file": "research/e21_permutation_null_1000.json",
+      "json_path": "geometry.3",
+      "source_script": "research/papers/e21_perm_null_1000.py",
+      "metric_definition": "fraction of held-out entries whose true cell appears in the top-3 ranked candidate cells",
+      "inference_unit": "entry (blind decision)",
+      "seed": "1000 shuffles for the null; 1000 splits for geometry",
+      "n": 582,
+      "uncertainty": "permuted-label null at 1000 shuffles",
+      "status": "established",
+      "reproduce": "python3 research/papers/e21_perm_null_1000.py",
+      "sequential_value": {
+        "result_file": "research/e21_sequential_split.json",
+        "json_path": "results.0.75.top3",
+        "value": 0.541
+      }
+    },
+    {
+      "claim_id": "PROP-002",
+      "statement": "The same representation as a judge: certification AUC on real misfilings is 0.519 (COSINE, n=574), indistinguishable from chance.",
+      "papers": [
+        "paper4_propose_certify"
+      ],
+      "experiment": "E16",
+      "result_file": "research/e15_e18_rerun.json",
+      "json_path": "experiments.E16.COSINE.auc",
+      "source_script": "research/papers/parse_e1518.py",
+      "metric_definition": "ROC AUC distinguishing real misfilings from correct filings",
+      "inference_unit": "entry",
+      "seed": null,
+      "n": null,
+      "uncertainty": "bootstrap CI in the stored file",
+      "status": "established",
+      "reproduce": "python3 research/papers/parse_e1518.py"
+    },
+    {
+      "claim_id": "PROP-003",
+      "statement": "SUPERSEDED METRIC. A 'propose/certify gap' was previously reported as top-3 containment minus certification AUC (0.668 - 0.519 = +0.149 random; 0.541 - 0.519 = +0.022 sequential). This subtraction is INVALID: containment in {0,1} and ROC AUC are different metrics on different scales, and their difference has no interpretation.",
+      "papers": [
+        "paper4_propose_certify"
+      ],
+      "experiment": "E21 vs E15/E18",
+      "result_file": "n/a - this claim is retracted, not measured",
+      "json_path": null,
+      "source_script": null,
+      "metric_definition": "none - the operation is undefined",
+      "inference_unit": "n/a",
+      "seed": null,
+      "n": null,
+      "uncertainty": "n/a",
+      "status": "superseded",
+      "reproduce": null,
+      "note": "Removed from paper4 on 2026-09-24. Both tasks are now reported against their OWN matched nulls: the proposer against the permuted-label null, the judge against chance (0.5). The qualitative claim (one task discriminates, the other does not) survives; the numerical gap does not."
+    },
+    {
+      "claim_id": "PROP-004",
+      "statement": "Sequential (file-order) evaluation is the primary protocol; the random split inflates top-3 containment by about +0.13 and is retained only as a labelled optimistic upper bound.",
+      "papers": [
+        "paper4_propose_certify"
+      ],
+      "experiment": "E21",
+      "result_file": "research/e21_sequential_split.json",
+      "json_path": "results.0.75.top3",
+      "source_script": "research/papers/e21_sequential_split.py",
+      "metric_definition": "top-3 containment with the first N entries as training and all later entries as test",
+      "inference_unit": "entry",
+      "seed": "deterministic in file order",
+      "n": 582,
+      "uncertainty": "single deterministic split per fraction; no split-level CI yet",
+      "status": "established",
+      "reproduce": "python3 research/papers/e21_sequential_split.py",
+      "note": "refiling_gate0.tsv has a sequence column but no timestamps; this is a SEQUENTIAL split, not a demonstrated chronological one."
+    },
+    {
+      "claim_id": "GRAN-001",
+      "statement": "Fine-grained kind labels (871 classes) reach AUC 0.627-0.751 versus coarse tool/prefix labels at 0.446-0.525.",
+      "papers": [
+        "paper9_dataset"
+      ],
+      "experiment": "E79/dataset_baselines",
+      "result_file": "research/dataset_baselines.json",
+      "json_path": "levels.kind.claude-code.auc",
+      "source_script": "research/papers/dataset_baselines.py",
+      "metric_definition": "AUC of held-out failure prediction under each label taxonomy",
+      "inference_unit": "session (must be re-verified; see blockers)",
+      "seed": null,
+      "n": null,
+      "uncertainty": "NOT YET session-level - open blocker",
+      "status": "suggestive",
+      "reproduce": "python3 research/papers/dataset_baselines.py",
+      "note": "Kill test currently reported as point AUCs. Phase 4 of the audit requires session-level CIs around these differences."
+    },
+    {
+      "claim_id": "EMP-001",
+      "statement": "The Empedoclean power-law criticality claim does not survive distribution fitting: a power law never beats a lognormal (Vuong test) at any of 9 settings across 16 seeds, and the critical band at nemesis 0.010 is seed-unstable.",
+      "papers": [
+        "paper10_empedocles"
+      ],
+      "experiment": "Empedocles multiseed sweep",
+      "result_file": "research/empedocles_fits.json",
+      "json_path": "settings.0.01.fit.verdict",
+      "source_script": "research/papers/fit_empedocles.py",
+      "metric_definition": "Vuong likelihood-ratio test between power-law and lognormal fits to cluster-size distributions",
+      "inference_unit": "run (16 seeds x 9 settings = 144 runs)",
+      "seed": "16 seeds, enumerated",
+      "n": 144,
+      "uncertainty": "seed-to-seed variance reported per setting",
+      "status": "falsified",
+      "reproduce": "cargo run --release --features empedocles --example empedocles_multiseed && python3 research/papers/fit_empedocles.py"
+    }
+  ]
+}
