@@ -242,6 +242,44 @@
       "uncertainty": "seed-to-seed variance reported per setting",
       "status": "falsified",
       "reproduce": "cargo run --release --features empedocles --example empedocles_multiseed && python3 research/papers/fit_empedocles.py"
+    },
+    {
+      "claim_id": "XFER-005",
+      "statement": "No cross-harness pair shows positive transfer after family-wise (Holm) correction over the 12 comparisons. The three pairs surviving Holm are significantly BELOW chance (claude-code->codex 0.394, codex->cline 0.401, codex->opencode 0.416). cline->opencode (0.534, raw p=0.0094) fails Holm, whose threshold at its rank is 0.006; it survives Benjamini-Hochberg only.",
+      "papers": [
+        "paper1_agent_priors"
+      ],
+      "experiment": "E74 multiplicity",
+      "result_file": "research/e1_multiplicity.json",
+      "json_path": "holm_survivors",
+      "source_script": "research/papers/e1_multiplicity.py",
+      "metric_definition": "Holm step-down over session-level bootstrap p-values, alpha=0.05, family of 12 directional tests",
+      "inference_unit": "session",
+      "seed": "bootstrap seed 42, 10000 replicates",
+      "n": 12,
+      "uncertainty": "bootstrap p-values, 10000 session-level resamples",
+      "status": "established",
+      "reproduce": "python3 research/papers/e1_multiplicity.py",
+      "note": "This overturns the earlier headline that 1 of 12 pairs was established. That claim (XFER-001) counted raw CI exclusion without multiplicity control and is now reporting-only."
+    },
+    {
+      "claim_id": "XFER-006",
+      "statement": "WITHDRAWN: the cold-start crossover curve previously reported (transferred-only 0.469 -> own-only 0.720, crossover at n=2) is contaminated by train/test leakage. own_only built its prior from all 42 target sessions and was scored on those same 42; mixed_nN scored on tgt including the tgt[:n] used to build it. Only the transferred-only arm (n=0, prior from a different harness) is uncontaminated, and it sits below chance at 0.469 [0.445,0.490].",
+      "papers": [
+        "paper1_agent_priors"
+      ],
+      "experiment": "E74 coldstart",
+      "result_file": "research/e74_replication_results.json",
+      "json_path": "coldstart.0.auc",
+      "source_script": "research/papers/e74_replication.py",
+      "metric_definition": "AUC of failure prediction on claude-code using a prior built from tgt[:n] -- local arms leak",
+      "inference_unit": "session",
+      "seed": 42,
+      "n": 42,
+      "uncertainty": "session bootstrap CI; interval valid, point estimate contaminated for the local arms",
+      "status": "superseded",
+      "reproduce": "python3 research/papers/e74_replication.py",
+      "note": "The corrected paired experiment (held-out train/test, arms A/B/C/D) is specified in research/EXPERIMENT_PLAN.md item 2 and is NOT yet run."
     }
   ]
 }

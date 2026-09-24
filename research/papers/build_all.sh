@@ -19,4 +19,22 @@ for f in $PAPERS; do
   printf '%-32s pages=%-3s undefined=%-3s missingfile=%-3s %s\n' "$f" "${pages:-?}" "${undef:-?}" "${navail:-?}" "$status"
 done
 [ "$fail" = "0" ] && echo "ALL PAPERS CLEAN" || echo "BUILD HAS UNRESOLVED REFERENCES"
+
+# --- gates: a paper build is not "done" if a claim or a release artifact is dirty
+REPO="$(cd ../.. && pwd)"
+echo
+echo "--- gates ---"
+if python3 "$REPO/research/results_registry/validate.py" >/tmp/reg_gate.txt 2>&1; then
+  tail -1 /tmp/reg_gate.txt | sed 's/^/registry: /'
+else
+  echo "registry: FAIL"; tail -5 /tmp/reg_gate.txt; fail=1
+fi
+if python3 "$REPO/research/release_audit.py" >/tmp/audit_gate.txt 2>&1; then
+  grep -m1 VERDICT /tmp/audit_gate.txt | sed 's/^/release: /'
+else
+  echo "release: FAIL — credential-class material in a release artifact"
+  grep -A3 'credential / secret' /tmp/audit_gate.txt | head -6
+  fail=1
+fi
+
 exit $fail

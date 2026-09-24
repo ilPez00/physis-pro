@@ -158,6 +158,44 @@ def cross_paper_checks(claims):
         else:
             warns.append(f"paper1: could not confirm the '{w} of twelve' form for {cid}")
 
+    # ---- XFER-005: multiplicity. The Holm survivors must all be BELOW chance,
+    # and paper1 must not resurrect the pre-correction headline.
+    mult = load("research/e1_multiplicity.json")
+    if mult:
+        surv = mult["holm_survivors"]
+        by = {r["pair"]: r for r in mult["pairs"]}
+        above = [s for s in surv if by[s]["auc_boot_mean"] > 0.5]
+        if above:
+            fail(f"XFER-005: Holm survivors include pairs ABOVE chance: {above} "
+                 f"— paper1's 'no positive transfer' claim would be false")
+        else:
+            ok(f"XFER-005: all {len(surv)} Holm survivors are below chance "
+               f"({[round(by[s]['auc_boot_mean'],3) for s in surv]})")
+        lo = by["cline->opencode"]
+        if lo["holm_reject"]:
+            fail("XFER-005: cline->opencode now survives Holm — paper1 says it fails")
+        else:
+            ok(f"XFER-005: cline->opencode does not survive Holm "
+               f"(p={lo['p_raw']:.4f} > {lo['holm_threshold']:.4f})")
+        if "No pair shows positive transfer" in p1 or "no pair shows positive" in p1:
+            ok("XFER-005: paper1 states the no-positive-transfer result")
+        else:
+            fail("XFER-005: paper1 does not state the no-positive-transfer result")
+        # warn only on the genuinely misleading pre-correction phrasing:
+        # asserting a pair IS established, without the Holm caveat
+        if re.search(r"one of twelve pairs is established", p1, re.I) or \
+           re.search(r"single pair whose interval excludes chance", p1, re.I):
+            warns.append("paper1 still asserts an established pair "
+                         "(pre-correction headline)")
+        else:
+            ok("XFER-005: paper1 no longer asserts an established pair")
+
+    # ---- XFER-006: the cold-start curve must be marked withdrawn
+    if "This subsection is withdrawn" in p1 and "WITHDRAWN" in p1:
+        ok("XFER-006: paper1 marks the cold-start curve withdrawn")
+    else:
+        fail("XFER-006: paper1 does not mark the cold-start curve as withdrawn")
+
 
 # ---------------------------------------------------------------- main
 

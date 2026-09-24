@@ -1,0 +1,155 @@
+{
+  "n_boot": 10000,
+  "inference_unit": "session",
+  "family_size": 12,
+  "pairs": [
+    {
+      "pair": "claude-code->cline",
+      "auc_boot_mean": 0.47037181881079904,
+      "lo": 0.4081223215652197,
+      "hi": 0.5293957116763078,
+      "p_raw": 0.3468,
+      "holm_threshold": 0.0125,
+      "bh_threshold": 0.0375,
+      "holm_reject": false,
+      "bh_reject": false
+    },
+    {
+      "pair": "claude-code->codex",
+      "auc_boot_mean": 0.39356539942917507,
+      "lo": 0.137,
+      "hi": 0.4870600414078675,
+      "p_raw": 0.0001,
+      "holm_threshold": 0.004166666666666667,
+      "bh_threshold": 0.004166666666666667,
+      "holm_reject": true,
+      "bh_reject": true
+    },
+    {
+      "pair": "claude-code->opencode",
+      "auc_boot_mean": 0.4859015948019148,
+      "lo": 0.45629595285476854,
+      "hi": 0.5154667429997299,
+      "p_raw": 0.3418,
+      "holm_threshold": 0.01,
+      "bh_threshold": 0.03333333333333333,
+      "holm_reject": false,
+      "bh_reject": false
+    },
+    {
+      "pair": "cline->claude-code",
+      "auc_boot_mean": 0.4709275589506773,
+      "lo": 0.4475480889253815,
+      "hi": 0.49466213422383715,
+      "p_raw": 0.0184,
+      "holm_threshold": 0.0071428571428571435,
+      "bh_threshold": 0.025000000000000005,
+      "holm_reject": false,
+      "bh_reject": true
+    },
+    {
+      "pair": "cline->codex",
+      "auc_boot_mean": 0.45996023364546573,
+      "lo": 0.16499999999999998,
+      "hi": 0.5664682539682538,
+      "p_raw": 0.5364842454394693,
+      "holm_threshold": 0.025,
+      "bh_threshold": 0.04583333333333334,
+      "holm_reject": false,
+      "bh_reject": false
+    },
+    {
+      "pair": "cline->opencode",
+      "auc_boot_mean": 0.5338214827743257,
+      "lo": 0.5080680241587846,
+      "hi": 0.5589192131187658,
+      "p_raw": 0.0094,
+      "holm_threshold": 0.00625,
+      "bh_threshold": 0.020833333333333332,
+      "holm_reject": false,
+      "bh_reject": true
+    },
+    {
+      "pair": "codex->claude-code",
+      "auc_boot_mean": 0.4888713876866408,
+      "lo": 0.46890329545633036,
+      "hi": 0.5068733797086388,
+      "p_raw": 0.2258,
+      "holm_threshold": 0.008333333333333333,
+      "bh_threshold": 0.02916666666666667,
+      "holm_reject": false,
+      "bh_reject": false
+    },
+    {
+      "pair": "codex->cline",
+      "auc_boot_mean": 0.40111018449449937,
+      "lo": 0.3593122175113433,
+      "hi": 0.447440669605829,
+      "p_raw": 0.0002,
+      "holm_threshold": 0.005,
+      "bh_threshold": 0.012500000000000002,
+      "holm_reject": true,
+      "bh_reject": true
+    },
+    {
+      "pair": "codex->opencode",
+      "auc_boot_mean": 0.4157581547795036,
+      "lo": 0.3791694656767682,
+      "hi": 0.4528694090166401,
+      "p_raw": 0.0001,
+      "holm_threshold": 0.004545454545454546,
+      "bh_threshold": 0.008333333333333333,
+      "holm_reject": true,
+      "bh_reject": true
+    },
+    {
+      "pair": "opencode->claude-code",
+      "auc_boot_mean": 0.4688346366240273,
+      "lo": 0.4427953480571176,
+      "hi": 0.4911840468596047,
+      "p_raw": 0.0062,
+      "holm_threshold": 0.005555555555555556,
+      "bh_threshold": 0.016666666666666666,
+      "holm_reject": false,
+      "bh_reject": true
+    },
+    {
+      "pair": "opencode->cline",
+      "auc_boot_mean": 0.5194844814902179,
+      "lo": 0.4671081449902758,
+      "hi": 0.5724370493719517,
+      "p_raw": 0.4714,
+      "holm_threshold": 0.016666666666666666,
+      "bh_threshold": 0.041666666666666664,
+      "holm_reject": false,
+      "bh_reject": false
+    },
+    {
+      "pair": "opencode->codex",
+      "auc_boot_mean": 0.4579696238941843,
+      "lo": 0.179,
+      "hi": 0.554520358868185,
+      "p_raw": 0.5364842454394693,
+      "holm_threshold": 0.05,
+      "bh_threshold": 0.05000000000000001,
+      "holm_reject": false,
+      "bh_reject": false
+    }
+  ],
+  "holm_survivors": [
+    "claude-code->codex",
+    "codex->cline",
+    "codex->opencode"
+  ],
+  "bh_survivors": [
+    "claude-code->codex",
+    "cline->claude-code",
+    "cline->opencode",
+    "codex->cline",
+    "codex->opencode",
+    "opencode->claude-code"
+  ],
+  "fisher_statistic": 92.6033135001372,
+  "fisher_p_approx": 5.32216550433631e-10,
+  "fisher_caveat": "pairs are not independent: the 12 comparisons share 4 harnesses, so this combined p is optimistic and is reported only as a rough global check"
+}

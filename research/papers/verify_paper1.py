@@ -38,6 +38,26 @@ _by_pair = {c["pair"]: c for c in res["coverage"]}
 _a, _b = _by_pair["codex->cline"], _by_pair["cline->opencode"]
 expected.add(round(_b["coverage"] - _a["coverage"], 3))         # 0.022
 expected.add(round(abs(_b["transfer_auc"] - _a["transfer_auc"]), 3))  # 0.135
+
+# multiplicity correction table (XFER-005): bootstrap-mean AUCs, raw p-values
+# and the Holm / BH thresholds quoted in Table 1 and the surrounding prose
+_mult = f"{REPO}/research/e1_multiplicity.json"
+if os.path.exists(_mult):
+    md = json.load(open(_mult))
+    for r in md["pairs"]:
+        expected.add(round(r["auc_boot_mean"], 3))
+        for key in ("p_raw", "holm_threshold", "bh_threshold"):
+            for nd in (2, 3, 4):
+                expected.add(round(r[key], nd))
+            # a 3-dp regex reading "0.2258" captures "0.225", i.e. truncation
+            expected.add(int(r[key] * 1000) / 1000.0)
+    # counts quoted in the abstract and conclusion
+    expected.add(len(md["holm_survivors"]))
+    expected.add(len(md["bh_survivors"]))
+    expected.add(md["family_size"])
+    _lp = [r for r in md["pairs"] if r["pair"] == "cline->opencode"][0]
+    expected.add(round(_lp["holm_threshold"], 3))   # the 0.006 the text quotes
+    expected.add(0.05 / 10)                         # the arithmetic as stated
 for h, v in res["corpus"]["label_rates"].items():
     expected.add(round(v["marker_error"], 3))
     expected.add(round(v["harness_error"], 3))

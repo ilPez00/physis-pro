@@ -21,18 +21,29 @@ Coding agents fail in predictable ways, and we ask whether that
 predictability transfers between agents. Using a corpus of 75,933 actions
 from four harnesses (Claude Code, Codex, Cline, OpenCode) across three
 machines, we test whether action-kind failure rates learned from one agent
-predict another agent's failures. Bootstrapping over sessions --- the
-correct inferential unit, since actions cluster within sessions --- only
-one of twelve cross-harness pairs has a confidence interval excluding
-chance: cline$\to$opencode at 0.534 [0.509, 0.559]. Eleven of twelve
-transfer pairs are indistinguishable from chance. Under the incorrect
-action-level bootstrap the same data yields two established pairs instead
-of one, which is a smaller distortion than we initially reported but the
-same kind of error. What does replicate is
-a \emph{cold-start} effect within a single target: a borrowed prior beats
-the target's own thin history and loses to its mature history. We report
-the negative result as the primary finding and treat the bootstrap unit as
-a first-class methodological variable in agent-trajectory evaluation.
+predict another agent's failures. Twelve directional source$\to$target
+comparisons are evaluated by session-level bootstrap --- the correct
+inferential unit, since actions cluster within sessions --- with
+family-wise correction over the twelve tests (Holm). \textbf{No pair shows
+positive transfer.} The only three comparisons to survive Holm are
+significantly \emph{below} chance (AUC 0.394, 0.401, 0.416), i.e.\ the
+borrowed prior misleads rather than merely failing to help. The single
+pair that appeared to transfer in our earlier analysis,
+cline$\to$opencode (0.534, raw $p = 0.009$), does not survive Holm; it
+would need $p \le 0.006$. Under the less conservative
+Benjamini--Hochberg procedure it does survive, as one of six, the other
+five being anti-predictive --- so we report the positive result as
+BH-dependent and not established. We also show that the choice of
+bootstrap unit is a first-class methodological variable here: the
+incorrect action-level bootstrap makes two pairs look like positive
+transfer where the correct session-level unit finds none. Our earlier
+\emph{cold-start} claim --- that a borrowed prior beats a target's own thin
+history --- is \textbf{withdrawn}: on inspection, the local prior was
+constructed from the same sessions it was scored on, so the own-history arm
+is contaminated by train/test leakage (Section~4.4). A corrected paired
+evaluation, building priors on a held-out train split, is specified in
+\texttt{research/EXPERIMENT\_PLAN.md} and is not yet run. We report the
+negative result, and the anti-predictive result, as the primary findings.
 \end{abstract}
 
 \section{Introduction}
@@ -149,12 +160,72 @@ interval width changes, which is precisely the failure mode. We report
 session-level intervals throughout, and the recomputation is stored in
 \texttt{research/bootstrap\_unit\_check.json}.
 
-Only one transfer survives:
-\begin{itemize}
-\item \textbf{cline$\to$opencode} (0.534, 95\% CI [0.509, 0.559]):
-  cline has the second-largest vocabulary; 37.5\% coverage of opencode.
-  This is the single pair whose interval excludes chance.
-\end{itemize}
+\subsection{Multiplicity correction}
+\label{sec:multiplicity}
+
+Twelve directional tests are reported. Selecting the smallest $p$ from twelve
+and quoting its interval is not evidence of an effect; the interval does not
+account for the selection. We therefore apply family-wise correction over the
+twelve comparisons, on session-level bootstrap $p$-values from 10{,}000
+replicates.
+
+\begin{table}[h]
+\centering
+\caption{All twelve directional comparisons, session-level bootstrap
+(10{,}000 replicates), ordered by raw $p$. The AUC column is the
+\emph{bootstrap mean}, which differs from the point estimate for pairs with
+very wide intervals (see the note below the table). `Holm' and `BH' mark
+which corrections reject each pair at $\alpha = 0.05$. AUC below $0.5$ means
+the borrowed prior is worse than chance.}
+\label{tab:multiplicity}
+\begin{tabular}{lrrcc}
+\toprule
+\textbf{pair} & \textbf{AUC} & \textbf{raw $p$} & \textbf{Holm} & \textbf{BH} \\
+\midrule
+claude-code$\to$codex     & 0.394 & 0.0001 & \checkmark & \checkmark \\
+codex$\to$opencode        & 0.416 & 0.0001 & \checkmark & \checkmark \\
+codex$\to$cline           & 0.401 & 0.0002 & \checkmark & \checkmark \\
+opencode$\to$claude-code  & 0.469 & 0.0062 &            & \checkmark \\
+cline$\to$opencode        & 0.534 & 0.0094 &            & \checkmark \\
+cline$\to$claude-code     & 0.471 & 0.0184 &            & \checkmark \\
+codex$\to$claude-code     & 0.489 & 0.2258 &            &            \\
+claude-code$\to$opencode  & 0.486 & 0.3418 &            &            \\
+claude-code$\to$cline     & 0.470 & 0.3468 &            &            \\
+opencode$\to$cline        & 0.519 & 0.4714 &            &            \\
+cline$\to$codex           & 0.460 & 0.5365 &            &            \\
+opencode$\to$codex        & 0.458 & 0.5365 &            &            \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{No pair shows positive transfer after family-wise correction.} The
+three comparisons that survive Holm are all significantly \emph{below} chance
+(0.394, 0.401, 0.416) --- the borrowed prior is anti-predictive, not merely
+uninformative. All three involve Codex, as source in two cases and target in
+one; we do not have a mechanism for that and flag it as an observation, not a
+finding.
+
+The pair that appeared to transfer in our earlier analysis,
+cline$\to$opencode (0.534, raw $p = 0.0094$), does \emph{not} survive Holm:
+at its rank the threshold is $0.05/10 = 0.006$, and $0.0094 > 0.006$. It does
+survive Benjamini--Hochberg, where it is one of six rejections --- and the
+other five are all below chance. We therefore report it as
+\emph{BH-dependent}: it is the only positive-direction comparison in the
+family, it is the weakest of the six BH rejections, and the more conservative
+procedure that controls the probability of \emph{any} false rejection does not
+retain it.
+
+Five of the twelve pairs are significantly below chance under the session-level
+unit (six under the action-level unit), which reframes the headline. ``Cross-
+agent failure priors do not transfer'' understates the result: where this
+corpus detects a cross-harness effect at all, the effect is usually that a
+borrowed prior makes the target's failures \emph{less} predictable. The
+significance of that anti-prediction is what survives correction; the single
+positive result does not.
+
+Stored in \texttt{research/e1\_multiplicity.json}; the Fisher combined test
+over the twelve gives $p \approx 5\times10^{-10}$ but is optimistic here
+because the comparisons share harnesses, so we do not rely on it.
 
 Two further pairs have point estimates above 0.5 but intervals that
 include it, and are therefore not established:
@@ -163,12 +234,21 @@ include it, and are therefore not established:
   74.3\% of cline's action kinds appear in opencode's vocabulary, yet the
   interval spans chance.
 \item \textbf{opencode$\to$codex} (0.503, 95\% CI [0.179, 0.555]):
-  three target sessions give an interval too wide to interpret.
+  three target sessions give an interval too wide to interpret. This pair is
+  the clearest case of the point-estimate/bootstrap-mean divergence flagged
+  in Table~\ref{tab:multiplicity}: its point estimate is 0.503 but its
+  bootstrap mean is 0.458, because the resampling distribution for a
+  3-session target is heavily skewed. Where the two disagree, the bootstrap
+  mean and the interval are the ones to read.
 \end{itemize}
 
-The weakest transfer is \textbf{codex$\to$cline} (0.399, CI [0.359, 0.448]):
-codex has only 3 sessions and 662 actions, so its per-kind estimates are
-sparse, and its interval excludes chance --- in the wrong direction.
+The weakest point estimate is \textbf{codex$\to$cline} (0.399, CI
+[0.359, 0.448]) --- and with the multiplicity correction applied it is no
+longer merely the weakest, it is one of the three comparisons that survive
+Holm as significantly \emph{below} chance. Codex has only 3 sessions and 662
+actions, so its per-kind estimates are sparse; sparse estimates that are
+systematically wrong in one direction are exactly what produces a reliably
+anti-predictive prior.
 
 \subsection{In-corpus baselines}
 
@@ -186,10 +266,15 @@ three other harnesses' priors exceed Codex's own baseline on point estimate
 (opencode$\to$codex: 0.503; cline$\to$codex: 0.513) while one does not
 (claude-code$\to$codex: 0.442). All three intervals overlap Codex's own, so
 none of these comparisons is individually established. Pooled, they are
-suggestive of a \textbf{cold-start} effect --- a borrowed prior from a
-larger corpus beating a thin local history --- but the effect is
-demonstrated only by the within-target curve in
-Section~\ref{sec:coldstart}, not by these cross-harness comparisons.
+weakly suggestive of a \textbf{cold-start} effect --- a borrowed prior from
+a larger corpus beating a thin local history --- but three overlapping
+intervals do not establish it, and the within-target curve that we
+previously offered as the demonstration has been withdrawn for train/test
+leakage (Section~\ref{sec:coldstart}). \textbf{We therefore make no
+cold-start claim.} Note that this particular comparison is not affected by
+that leakage: codex's own baseline is leave-one-session-out and the borrowed
+priors come from other harnesses, so both arms are clean. It remains
+unestablished for the ordinary reason --- the intervals overlap.
 
 \subsection{Coverage correlates with transfer success}
 \label{sec:coverage}
@@ -218,9 +303,11 @@ and we do not claim sufficiency in either direction. We report coverage as
 a diagnostic to inspect, not a gate and not a predictor, and note that E73's
 coverage gate of 0.90 --- set on
 same-harness machine pairs --- is not reproduced by these cross-harness
-pairs. Because only one of twelve pairs is established under session-level
-inference, this correlation rests on twelve point estimates of which eleven
-are indistinguishable from chance; a pattern in which the two worst pairs
+pairs. Because no pair shows positive transfer once the twelve comparisons
+are corrected for multiplicity (Section~\ref{sec:multiplicity}), this
+correlation rests on twelve point estimates of which eleven are
+indistinguishable from chance and three are significantly below it; a
+pattern in which the two worst pairs
 also happen to have low coverage is the pattern expected by construction in
 such a sample. We present the correlation as exploratory, do not interpret
 it causally, and would require a larger harness set before treating it as a
@@ -238,49 +325,90 @@ vocabulary. Higher coverage predicts higher transfer success.}
 \subsection{Cold-start crossover}
 \label{sec:coldstart}
 
-Figure~\ref{fig:coldstart} shows the cold-start curve for
-opencode$\to$claude-code: as the number of target sessions available for
-the local prior grows, the AUC rises from 0.469 [0.445, 0.490] (transferred
-prior only) to 0.720 [0.700, 0.743] (own prior only). The mixed prior
-already exceeds the transferred-only value at two target sessions
-(0.598 [0.562, 0.635]), so the crossover occurs at approximately two
-sessions; from there the curve rises monotonically (0.623 at 5,
-0.676 at 20). These intervals are the narrowest in the paper because the
-target is the well-populated claude-code corpus, and they are the only
-comparisons here whose intervals separate. The transferred-only prior sits
-below chance with an interval excluding it, which is the honest reading of
-a prior borrowed from a different harness with no local data: it is worse
-than guessing until local history arrives.
+\textbf{This subsection is withdrawn. It reports a contaminated comparison
+and is retained only so the error is on the record.} The curve below was
+produced by building the local prior from target sessions and then scoring
+that prior on \emph{the same} target sessions:
+
+\begin{itemize}
+\item \texttt{own\_only} (n=42) built its prior from all 42 claude-code
+  sessions and was scored on all 42 --- pure leakage.
+\item \texttt{mixed\_n}$N$ built its prior from \texttt{tgt[:N]} and was
+  scored on all of \texttt{tgt}, which includes \texttt{tgt[:N]}.
+\item \texttt{transferred\_only} (n=0) is the only uncontaminated arm: its
+  prior comes from opencode, a different harness, and never sees claude-code.
+\end{itemize}
+
+Every point on the curve therefore shares one test set (14{,}457 actions, 42
+sessions), so the comparison is \emph{paired} --- but the two arms that
+appear to win are the two that were allowed to see their own test data. The
+effect size below, and the crossover at $n = 2$, cannot be attributed to
+local history.
+
+The one arm that is clean points the other way, and agrees with
+Section~\ref{sec:multiplicity}: the borrowed prior alone sits \emph{below}
+chance, 0.469 [0.445, 0.490], with an interval excluding 0.5. That is the
+same anti-predictive pattern the family-wise analysis finds. The prior
+borrowed from a different harness is worse than guessing, and that is the
+only part of this curve we still believe.
+
+The corrected experiment --- build priors on a held-out train split, score on
+a fixed held-out test split, sweep $N$ over the train portion only, and add
+the global-base-rate and shrunk/hierarchical arms that are currently missing
+--- is specified in \texttt{research/EXPERIMENT\_PLAN.md}. Until it is run,
+this paper claims no cold-start effect.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.7\textwidth]{fig2_cold_start_curve.pdf}
-\caption{Cold-start curve: AUC as a function of target sessions used for
-the local prior. Source: opencode (largest corpus). Target: claude-code.
-The transferred prior alone (n=0) achieves AUC 0.469; the own prior alone
-(n=42) achieves 0.720. The mixed prior overtakes the transferred-only
-value at n=2 (0.598).}
+\caption{WITHDRAWN. The cold-start curve as originally computed. The
+\texttt{own\_only} and \texttt{mixed\_n}$N$ points build their priors from
+sessions contained in the test set, so their apparent advantage over the
+transferred-only point is leakage, not local history. Retained to document
+the error; do not read it as a result.}
 \label{fig:coldstart}
 \end{figure}
 
+\emph{As originally reported (withdrawn):} the curve for
+opencode$\to$claude-code rose from 0.469 [0.445, 0.490] (transferred prior
+only) to 0.720 [0.700, 0.743] (own prior only), with the mixed prior
+exceeding the transferred-only value at two target sessions
+(0.598 [0.562, 0.635]), suggesting a crossover at approximately two
+sessions.
+
 \section{Discussion}
 
-\textbf{What transfers.} Very little transfers across harnesses: one of
-twelve pairs is established under session-level inference. Even that pair's
-mechanism is ordinary. Different harnesses share tool vocabularies (Bash,
-Read, Edit, Write, Grep), and some action kinds fail at similar rates
-across agents; where two harnesses' kind distributions happen to align
-well (cline$\to$opencode), the per-kind rate carries over. Where they do
-not, it does not. We cannot identify a property of a pair that predicts
+\textbf{What transfers.} Almost nothing transfers across harnesses, and the
+exception does not survive correction. Only one of twelve pairs has a
+point estimate above chance with an interval excluding it
+(cline$\to$opencode, 0.534), and it fails Holm
+(Section~\ref{sec:multiplicity}); it survives only the less conservative
+Benjamini--Hochberg. Its mechanism, insofar as we can read one, is ordinary:
+different harnesses share tool vocabularies (Bash, Read, Edit, Write, Grep),
+and where two harnesses' kind distributions happen to align the per-kind
+rate carries over. We cannot identify a property of a pair that predicts
 which case it will be --- coverage, the most plausible candidate, is
 exploratory at best on twelve points.
 
+\textbf{What anti-transfers.} The reliable effect in this corpus runs the
+other way. Three pairs are significantly \emph{below} chance after
+family-wise correction (0.394, 0.401, 0.416), all involving Codex. Codex's
+corpus is 3 sessions and 662 actions, so its per-kind rate estimates are
+sparse; a sparse estimate that is systematically wrong in one direction
+produces a prior that is reliably worse than guessing. We flag this as an
+observation rather than a mechanism --- we have one small harness, not a
+study of small harnesses --- but it is the only cross-harness effect here
+that survives correction, and it is the result the title should be read
+against: the danger is not that borrowed priors fail to help, it is that
+they can mislead.
+
 \textbf{What does not transfer.} Codex's 3-session corpus is too small for
 its own in-corpus prior to be useful (AUC 0.461), and other harnesses'
-priors beat it. This is the cold-start regime where a borrowed prior is
-most valuable. The result is partial: cross-harness transfer AUCs span
-0.399--0.534, against in-corpus baselines of 0.461--0.751, so a borrowed
-prior is a stopgap, not a replacement for local data. Across all twelve
+priors beat it on point estimate. We previously read this as evidence of a
+cold-start effect; that reading depended on a within-target curve which we
+have since withdrawn for train/test leakage
+(Section~\ref{sec:coldstart}), and the present comparison is unestablished
+for the ordinary reason that the intervals overlap. Across all twelve
 pairs the borrowed prior never reaches the target's own mature baseline.
 
 \textbf{Label drift.} The four harnesses use different failure labels
@@ -297,21 +425,29 @@ replication.
 
 \section{Conclusion}
 
-Cross-agent operational failure priors barely transfer. Under
-session-level bootstrap --- the correct inferential unit --- only one of
-twelve cross-harness pairs has an interval excluding chance, and no
-borrowed prior reaches the target's own mature baseline. The result we can
-defend is the cold-start crossover within a single target: a borrowed prior
-helps only while local history is thin (below roughly five sessions), after
-which the local prior wins. Even there the borrowed prior alone sits below
-chance, so it is a bridge and not a substitute.
+Cross-agent operational failure priors do not transfer, and the effect this
+corpus can detect is the opposite of the one we went looking for. Under
+session-level bootstrap --- the correct inferential unit --- and family-wise
+correction over the twelve comparisons, \emph{no} pair shows positive
+transfer. The three pairs that survive Holm are significantly \emph{below}
+chance (0.394, 0.401, 0.416): a prior borrowed from one harness makes
+another harness's failures less predictable than chance would. The single
+positive-direction result, cline$\to$opencode at 0.534, survives
+Benjamini--Hochberg but not Holm, and we report it as BH-dependent rather
+than established.
+
+This is a stronger claim than ``priors do not transfer''. The literature
+assumption worth testing is that failure statistics are a portable property
+of a task domain; on this corpus, where they are detectable across harnesses
+at all, they are actively misleading. That is a negative result with a
+sign, and it is the one the data supports.
 
 Two methodological points follow. First, the bootstrap unit is a
 first-class variable in this kind of evaluation: the action-level bootstrap
-reports two established pairs where the session-level bootstrap reports
-one, and the only thing that changes is interval width. Clustering actions
-within sessions inflates apparent significance, and agent-trajectory work
-should resample sessions. Second, a plausible and
+reports two pairs as positive transfer where the session-level bootstrap
+reports none, and the only thing that changes is interval width. Clustering
+actions within sessions inflates apparent significance, and
+agent-trajectory work should resample sessions. Second, a plausible and
 often-assumed property of the data --- that vocabulary coverage governs
 transfer --- is at best exploratory here, since it is estimated from
 eleven chance-level point estimates.
