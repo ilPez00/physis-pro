@@ -134,37 +134,58 @@ Order parameters, and a correction worth recording:
   percolation susceptibility drops the spanning cluster precisely for this
   reason.
 
-**Result (N = 100 and 300, 8 seeds each; artifact
-`research/p10_fss.json`, `partial: [100, 300]`).** The sweep finds **two
-distinct features**, not one:
+**Result: all three node counts completed** (N=100 3.1 s, N=300 25.6 s,
+N=1000 252.1 s; 8 seeds each; artifact `research/p10_fss.json`, diagnostics
+recomputed without re-running the simulation). Two features appear at every
+size:
 
-| | N=100 | N=300 |
-|---|---|---|
-| largest-cluster fraction at nemesis 0 | 0.521 | 0.498 |
-| chi (excl. largest) at nemesis 0 | 10.77 | 37.92 |
-| full fusion (largest = 1.000) at | nemesis 0.002–0.004 | nemesis 0.002–0.004 |
-| largest falls below 0.5 at | ~0.008 | ~0.0095 |
-| fragmented (largest < 0.02) from | 0.010 | 0.015 |
-| chi peak (excl. largest) | 1.62 at 0.008 | 2.28 at 0.012 |
+| | N=100 | N=300 | N=1000 |
+|---|---|---|---|
+| largest-cluster fraction at nemesis 0 | 0.521 | 0.498 | 0.577 |
+| clusters at nemesis 0 | 3.4 | 3.2 | 2.9 |
+| full fusion (largest = 1.000) at | 0.002–0.004 | 0.002–0.004 | 0.002–0.004 |
+| transition width | 0.008 | 0.010 | 0.080 |
+| chi_max / N | 0.1077 | 0.1264 | 0.1036 |
 
-1. **A sharp fusion step** between nemesis 0 and 0.002, where the field goes
-   from ~3–4 medium clusters to a single cluster containing everything.
-2. **A fragmentation transition** between ~0.006 and ~0.020, where the largest
-   cluster collapses toward zero and chi peaks — this is the region the
-   published nine points sample too sparsely to resolve.
+1. **A sharp fusion step** between nemesis 0 and 0.002, identical at all three
+   sizes: the field goes from ~3 medium clusters to one cluster holding
+   everything.
+2. **A fragmentation transition** between ~0.006 and ~0.02, where the largest
+   cluster collapses.
 
-**The scaling evidence points away from criticality, with one caveat.** The
-fragmentation transition is *wider* at the larger N (roughly 0.006–0.010 at
-N=100 versus 0.006–0.015 at N=300) while its midpoint barely moves (0.008 →
-0.0095). A critical transition sharpens as N grows; a broadening one is the
-signature of an ordinary crossover. Separately, chi at nemesis 0 grows
-essentially in proportion to N (10.77 → 37.92 for a 3× increase in N), which is
-what three O(N) clusters trivially produce and is **not** critical scaling.
+**The verdict is: no critical scaling, and no transition even located.**
 
-The caveat is decisive for what can be claimed: **two node counts cannot
-establish or refute a scaling exponent.** No exponent is fitted, none is
-reported, and the classification field in the artifact stays `null` because the
-sweep did not complete.
+- **chi_max/N is constant** across a tenfold range in N (0.108, 0.126, 0.104).
+  chi growing in proportion to N is the *trivial* signature of a fixed small
+  number of O(N) clusters — with k clusters of size ~N/k,
+  `chi_excl ≈ N(k-1)/k²`, so chi/N is constant. It is not critical scaling, and
+  reporting the bare log-log slope (0.98) without chi/N would have invited
+  exactly the wrong reading.
+- **chi peaks at the edge of the nemesis grid** (nemesis = 0, the lowest value
+  tested) at *every* node count. No critical point was found inside the sweep;
+  chi merely rises monotonically to the boundary.
+- **The transition WIDENS with N**: width 0.008 → 0.010 → 0.080, a log-log slope
+  of **+1.01**, i.e. width ∝ N. A critical transition sharpens as N grows.
+
+**An error of mine, and the most instructive one in this run.** The script's
+first automated classifier reported the *opposite*: "chi peak grows with N and
+the transition narrows: consistent with finite-size critical scaling". It was
+wrong twice over. It read the chi ∝ N slope as a scaling signature with no
+check that the peak lay inside the sweep, and its message said "narrows" as
+fixed text while its own width slope was **positive** — the number and the
+words disagreed, and the words were the flattering ones. A classifier that
+prints a conclusion the data contradicts is worse than no classifier, because
+it is quotable. Both defects are fixed: the sweep-boundary check and the
+chi/N check now run before any scaling language is emitted, and the
+narrowing/broadening branch is chosen by the sign of the width slope rather
+than asserted. The corrected artifact carries `NO TRANSITION LOCATED`.
+
+**A confound that would have to be resolved before any exponent could be
+fitted.** `link_dist` is fixed at 0.15 while N varies in a fixed 2-D region, so
+*density* grows with N and the effective coupling changes with system size. A
+finite-size scaling analysis requires the interaction range or the density to be
+held invariant; these runs do not do that. So even had a transition been
+located, no exponent from this sweep would have been interpretable.
 
 **LIMITATION.** **LIMITATION.** The 3000-node runs are ~10.4 s per (seed, nemesis) pair, so that
 end of the sweep uses 8 seeds; the smallest N gets 16. Seed counts are

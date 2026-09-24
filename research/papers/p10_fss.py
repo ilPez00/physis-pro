@@ -93,12 +93,112 @@ def stats_for(rows):
     }
 
 
+def compute_diagnostics(curves):
+    """Scaling diagnostics from the completed node-count curves."""
+    # ---- scaling diagnostics -------------------------------------------
+    diag = {}
+    peaks, widths, halfs = [], [], []
+    for c in curves:
+        pts = c["points"]
+        pk = max(pts, key=lambda p: p["chi_excl_mean"])
+        peaks.append({"nodes": c["nodes"], "nemesis_at_peak": pk["nemesis"],
+                      "chi_peak": pk["chi_excl_mean"], "largest_at_peak": pk["largest_mean"]})
+        # crossing of largest_mean through 0.5, by linear interpolation
+        xs = [p["nemesis"] for p in pts]
+        ys = [p["largest_mean"] for p in pts]
+        cross = None
+        for i in range(len(xs) - 1):
+            if (ys[i] - 0.5) * (ys[i + 1] - 0.5) <= 0 and ys[i] != ys[i + 1]:
+                cross = xs[i] + (0.5 - ys[i]) * (xs[i + 1] - xs[i]) / (ys[i + 1] - ys[i])
+                break
+        halfs.append({"nodes": c["nodes"], "nemesis_at_half": cross})
+        # width of the transition: span where 0.1 < largest_mean < 0.9
+        band = [p["nemesis"] for p in pts if 0.1 <= p["largest_mean"] <= 0.9]
+        widths.append({"nodes": c["nodes"],
+                       "width": (max(band) - min(band)) if len(band) > 1 else None})
+
+    diag["chi_peak_by_N"] = peaks
+    diag["largest_half_crossing_by_N"] = halfs
+    diag["transition_width_by_N"] = widths
+
+    # Is the chi peak even INSIDE the sweep? A peak at the first or last grid
+    # point means no transition was located -- chi merely rises monotonically to
+    # the edge, and its "scaling" is then uninterpretable.
+    edge = []
+    for c in curves:
+        pts = c["points"]
+        pk = max(pts, key=lambda p: p["chi_excl_mean"])
+        edge.append(pk["nemesis"] in (pts[0]["nemesis"], pts[-1]["nemesis"]))
+    diag["chi_peak_at_sweep_boundary"] = all(edge)
+
+    # chi ~ N is the TRIVIAL signature of a fixed small number of O(N) clusters:
+    # with k clusters of size ~N/k, chi_excl ~ N(k-1)/k^2, so chi/N is constant.
+    # Report chi/N explicitly, because "chi grows with N" alone invites exactly
+    # the wrong reading.
+    diag["chi_over_N_by_N"] = [
+        {"nodes": c["nodes"],
+         "chi_over_N": max(p["chi_excl_mean"] for p in c["points"]) / c["nodes"]}
+        for c in curves]
+
+    # Does the peak grow with N (critical scaling) or saturate (ordinary
+    # crossover)? Log-log slope of chi_peak vs N.
+    ns = np.array([p["nodes"] for p in peaks], dtype=float)
+    ch = np.array([p["chi_peak"] for p in peaks], dtype=float)
+    ok = (ch > 0) & np.isfinite(ch)
+    slope = None
+    if ok.sum() >= 3:
+        slope = float(np.polyfit(np.log(ns[ok]), np.log(ch[ok]), 1)[0])
+    diag["chi_peak_loglog_slope_vs_N"] = slope
+
+    ws = [(w["nodes"], w["width"]) for w in widths if w["width"]]
+    shrink = None
+    if len(ws) >= 3:
+        wn = np.array([x[0] for x in ws], dtype=float)
+        wv = np.array([x[1] for x in ws], dtype=float)
+        if (wv > 0).all():
+            shrink = float(np.polyfit(np.log(wn), np.log(wv), 1)[0])
+
+    chi_over_N = [x["chi_over_N"] for x in diag["chi_over_N_by_N"]]
+    flat_chi_over_N = (max(chi_over_N) - min(chi_over_N)) / max(chi_over_N) < 0.30
+    if slope is None:
+        kind = "indeterminate (too few points)"
+    elif diag["chi_peak_at_sweep_boundary"]:
+        kind = ("NO TRANSITION LOCATED: chi peaks at the edge of the nemesis "
+                "grid at every node count, so no critical point was found "
+                "inside the sweep and no scaling can be read from it")
+    elif flat_chi_over_N:
+        kind = ("chi/N is approximately constant across N, which is the TRIVIAL "
+                "signature of a fixed small number of O(N) clusters, not "
+                "critical scaling. No scaling claim is supportable.")
+    elif slope > 0.25 and (shrink is not None and shrink < -0.25):
+        kind = ("chi peak grows with N while the transition NARROWS "
+                "(width ~ N^negative): consistent with finite-size critical "
+                "scaling -- but nemesis is an external knob, so this would be a "
+                "TUNED transition, never self-organized criticality")
+    elif shrink is not None and shrink > 0.25:
+        kind = ("the transition WIDENS with N (width ~ N^positive). A critical "
+                "transition sharpens with N, so this is an ordinary crossover, "
+                "not critical scaling")
+    else:
+        kind = "no consistent scaling"
+
+    diag["classification"] = kind
+    diag["transition_width_loglog_slope_vs_N"] = shrink
+    diag["note"] = ("A tuned transition is not self-organized criticality: SOC "
+                    "requires the system to reach the critical point without an "
+                    "external control parameter, and nemesis_strength is one.")
+    return diag
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds-big", type=int, default=None,
                     help="override the seed count for every node count")
     ap.add_argument("--nodes", type=str, default=None,
                     help="comma list to override the node sweep")
+    ap.add_argument("--recompute", action="store_true",
+                    help="recompute diagnostics from the curves already in the "
+                         "artifact; does not re-run the simulation")
     a = ap.parse_args()
 
     if not os.path.exists(BIN):
@@ -106,6 +206,20 @@ def main():
               f"build: cargo build --release --features empedocles "
               f"--example empedocles_multiseed")
         return 1
+
+    if a.recompute:
+        d = json.load(open(OUT))
+        d["diagnostics"] = compute_diagnostics(d["curves"])
+        d["partial"] = None
+        json.dump(d, open(OUT, "w"), indent=2)
+        g = d["diagnostics"]
+        print("=== recomputed diagnostics (no simulation) ===")
+        print("  chi_peak_at_sweep_boundary:", g.get("chi_peak_at_sweep_boundary"))
+        print("  chi_over_N_by_N:", [(x["nodes"], round(x["chi_over_N"], 4))
+                                     for x in g.get("chi_over_N_by_N", [])])
+        print("  width loglog slope:", g.get("transition_width_loglog_slope_vs_N"))
+        print("  classification:", g.get("classification"))
+        return 0
 
     nodes_list = ([int(x) for x in a.nodes.split(",")] if a.nodes else N_LIST)
     curves, t0 = [], time.time()
@@ -138,69 +252,8 @@ def main():
                       indent=2)
 
 
-    # ---- scaling diagnostics -------------------------------------------
-    diag = {}
-    peaks, widths, halfs = [], [], []
-    for c in curves:
-        pts = c["points"]
-        pk = max(pts, key=lambda p: p["chi_excl_mean"])
-        peaks.append({"nodes": c["nodes"], "nemesis_at_peak": pk["nemesis"],
-                      "chi_peak": pk["chi_excl_mean"], "largest_at_peak": pk["largest_mean"]})
-        # crossing of largest_mean through 0.5, by linear interpolation
-        xs = [p["nemesis"] for p in pts]
-        ys = [p["largest_mean"] for p in pts]
-        cross = None
-        for i in range(len(xs) - 1):
-            if (ys[i] - 0.5) * (ys[i + 1] - 0.5) <= 0 and ys[i] != ys[i + 1]:
-                cross = xs[i] + (0.5 - ys[i]) * (xs[i + 1] - xs[i]) / (ys[i + 1] - ys[i])
-                break
-        halfs.append({"nodes": c["nodes"], "nemesis_at_half": cross})
-        # width of the transition: span where 0.1 < largest_mean < 0.9
-        band = [p["nemesis"] for p in pts if 0.1 <= p["largest_mean"] <= 0.9]
-        widths.append({"nodes": c["nodes"],
-                       "width": (max(band) - min(band)) if len(band) > 1 else None})
-
-    diag["chi_peak_by_N"] = peaks
-    diag["largest_half_crossing_by_N"] = halfs
-    diag["transition_width_by_N"] = widths
-
-    # Does the peak grow with N (critical scaling) or saturate (ordinary
-    # crossover)? Log-log slope of chi_peak vs N.
-    ns = np.array([p["nodes"] for p in peaks], dtype=float)
-    ch = np.array([p["chi_peak"] for p in peaks], dtype=float)
-    ok = (ch > 0) & np.isfinite(ch)
-    slope = None
-    if ok.sum() >= 3:
-        slope = float(np.polyfit(np.log(ns[ok]), np.log(ch[ok]), 1)[0])
-    diag["chi_peak_loglog_slope_vs_N"] = slope
-
-    ws = [(w["nodes"], w["width"]) for w in widths if w["width"]]
-    shrink = None
-    if len(ws) >= 3:
-        wn = np.array([x[0] for x in ws], dtype=float)
-        wv = np.array([x[1] for x in ws], dtype=float)
-        if (wv > 0).all():
-            shrink = float(np.polyfit(np.log(wn), np.log(wv), 1)[0])
-
-    if slope is None:
-        kind = "indeterminate (too few points)"
-    elif slope > 0.25:
-        kind = ("chi peak grows with N and the transition narrows: consistent "
-                "with finite-size critical scaling -- BUT nemesis is an external "
-                "knob, so this is a tuned transition, not self-organized "
-                "criticality")
-    elif abs(slope) <= 0.25:
-        kind = ("chi peak roughly independent of N: an ordinary crossover, not "
-                "critical scaling")
-    else:
-        kind = "chi peak SHRINKS with N: no consistent scaling"
-
-    diag["classification"] = kind
-    diag["transition_width_loglog_slope_vs_N"] = shrink
+    diag = compute_diagnostics(curves)
     diag["total_seconds"] = round(time.time() - t0, 1)
-    diag["note"] = ("A tuned transition is not self-organized criticality: SOC "
-                    "requires the system to reach the critical point without an "
-                    "external control parameter, and nemesis_strength is one.")
 
     out = {"nemesis_grid": NEMESIS, "curves": curves, "diagnostics": diag,
            "binary": os.path.relpath(BIN, REPO),

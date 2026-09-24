@@ -368,13 +368,254 @@
         }
       ],
       "seconds": 25.6
+    },
+    {
+      "nodes": 1000,
+      "seeds": 8,
+      "points": [
+        {
+          "nemesis": 0,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.577375,
+          "largest_std": 0.13906929156770326,
+          "n_clusters_mean": 2.875,
+          "chi_excl_mean": 103.621375,
+          "chi_excl_std": 43.10910865943199,
+          "second_largest_mean": 0.276,
+          "regime_counts": {
+            "Critical": 5,
+            "Supercritical": 3
+          }
+        },
+        {
+          "nemesis": 0.002,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 1.0,
+          "largest_std": 0.0,
+          "n_clusters_mean": 1.0,
+          "chi_excl_mean": 0.0,
+          "chi_excl_std": 0.0,
+          "second_largest_mean": 0.0,
+          "regime_counts": {
+            "Supercritical": 8
+          }
+        },
+        {
+          "nemesis": 0.004,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 1.0,
+          "largest_std": 0.0,
+          "n_clusters_mean": 1.0,
+          "chi_excl_mean": 0.0,
+          "chi_excl_std": 0.0,
+          "second_largest_mean": 0.0,
+          "regime_counts": {
+            "Supercritical": 8
+          }
+        },
+        {
+          "nemesis": 0.006,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.99675,
+          "largest_std": 0.0021876275473019383,
+          "n_clusters_mean": 4.25,
+          "chi_excl_mean": 0.0032500000000000003,
+          "chi_excl_std": 0.0021876275473019366,
+          "second_largest_mean": 0.001,
+          "regime_counts": {
+            "Supercritical": 8
+          }
+        },
+        {
+          "nemesis": 0.008,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.917,
+          "largest_std": 0.00545108115095398,
+          "n_clusters_mean": 75.0,
+          "chi_excl_mean": 0.11075,
+          "chi_excl_std": 0.026119232104223237,
+          "second_largest_mean": 0.003375,
+          "regime_counts": {
+            "Supercritical": 8
+          }
+        },
+        {
+          "nemesis": 0.01,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.8003750000000001,
+          "largest_std": 0.009723866074179117,
+          "n_clusters_mean": 175.25,
+          "chi_excl_mean": 0.289375,
+          "chi_excl_std": 0.03913324308418246,
+          "second_largest_mean": 0.00575,
+          "regime_counts": {
+            "Supercritical": 8
+          }
+        },
+        {
+          "nemesis": 0.012,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.7057499999999999,
+          "largest_std": 0.01165884091273964,
+          "n_clusters_mean": 244.0,
+          "chi_excl_mean": 0.504,
+          "chi_excl_std": 0.05394176754347492,
+          "second_largest_mean": 0.00825,
+          "regime_counts": {
+            "Supercritical": 8
+          }
+        },
+        {
+          "nemesis": 0.015,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.62775,
+          "largest_std": 0.01524795068197692,
+          "n_clusters_mean": 306.25,
+          "chi_excl_mean": 0.661,
+          "chi_excl_std": 0.1413384994563457,
+          "second_largest_mean": 0.008375,
+          "regime_counts": {
+            "Supercritical": 8
+          }
+        },
+        {
+          "nemesis": 0.02,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.5315000000000001,
+          "largest_std": 0.007855844048495734,
+          "n_clusters_mean": 374.5,
+          "chi_excl_mean": 0.87575,
+          "chi_excl_std": 0.06759702022173124,
+          "second_largest_mean": 0.009000000000000001,
+          "regime_counts": {
+            "Critical": 8
+          }
+        },
+        {
+          "nemesis": 0.03,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.413875,
+          "largest_std": 0.03549823939296146,
+          "n_clusters_mean": 449.25,
+          "chi_excl_mean": 1.338875,
+          "chi_excl_std": 0.2456486675256816,
+          "second_largest_mean": 0.01325,
+          "regime_counts": {
+            "Critical": 8
+          }
+        },
+        {
+          "nemesis": 0.05,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.3255,
+          "largest_std": 0.039992856504988135,
+          "n_clusters_mean": 505.625,
+          "chi_excl_mean": 1.8367499999999999,
+          "chi_excl_std": 0.4922463813985838,
+          "second_largest_mean": 0.018625000000000003,
+          "regime_counts": {
+            "Critical": 8
+          }
+        },
+        {
+          "nemesis": 0.08,
+          "nodes": 1000,
+          "n_seeds": 8,
+          "largest_mean": 0.307875,
+          "largest_std": 0.017715509750337012,
+          "n_clusters_mean": 529.125,
+          "chi_excl_mean": 1.527375,
+          "chi_excl_std": 0.22455603023362725,
+          "second_largest_mean": 0.014,
+          "regime_counts": {
+            "Critical": 8
+          }
+        }
+      ],
+      "seconds": 252.1
     }
   ],
-  "diagnostics": null,
-  "partial": [
-    100,
-    300
-  ],
+  "diagnostics": {
+    "chi_peak_by_N": [
+      {
+        "nodes": 100,
+        "nemesis_at_peak": 0,
+        "chi_peak": 10.77125,
+        "largest_at_peak": 0.52125
+      },
+      {
+        "nodes": 300,
+        "nemesis_at_peak": 0,
+        "chi_peak": 37.92416666666667,
+        "largest_at_peak": 0.498333375
+      },
+      {
+        "nodes": 1000,
+        "nemesis_at_peak": 0,
+        "chi_peak": 103.621375,
+        "largest_at_peak": 0.577375
+      }
+    ],
+    "largest_half_crossing_by_N": [
+      {
+        "nodes": 100,
+        "nemesis_at_half": 0.007192691029900332
+      },
+      {
+        "nodes": 300,
+        "nemesis_at_half": 6.644352711324887e-06
+      },
+      {
+        "nodes": 1000,
+        "nemesis_at_half": 0.022678002125398517
+      }
+    ],
+    "transition_width_by_N": [
+      {
+        "nodes": 100,
+        "width": 0.008
+      },
+      {
+        "nodes": 300,
+        "width": 0.01
+      },
+      {
+        "nodes": 1000,
+        "width": 0.08
+      }
+    ],
+    "chi_peak_at_sweep_boundary": true,
+    "chi_over_N_by_N": [
+      {
+        "nodes": 100,
+        "chi_over_N": 0.1077125
+      },
+      {
+        "nodes": 300,
+        "chi_over_N": 0.1264138888888889
+      },
+      {
+        "nodes": 1000,
+        "chi_over_N": 0.103621375
+      }
+    ],
+    "chi_peak_loglog_slope_vs_N": 0.980819161875171,
+    "classification": "NO TRANSITION LOCATED: chi peaks at the edge of the nemesis grid at every node count, so no critical point was found inside the sweep and no scaling can be read from it",
+    "transition_width_loglog_slope_vs_N": 1.011590252513338,
+    "note": "A tuned transition is not self-organized criticality: SOC requires the system to reach the critical point without an external control parameter, and nemesis_strength is one."
+  },
   "binary": "target/release/examples/empedocles_multiseed",
-  "reproduce": "python3 research/papers/p10_fss.py"
+  "reproduce": "python3 research/papers/p10_fss.py",
+  "partial": null
 }
