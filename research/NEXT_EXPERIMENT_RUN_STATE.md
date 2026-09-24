@@ -168,3 +168,27 @@ in the corpus builder (root-cause fix, applies to every git call it makes).
 Scripts: `research/papers/p2_build_corpus.py`, `research/papers/p2_analysis.py`
 Tasks 2C identity / 2E overlap-killer / 2F dimensionality are implemented;
 2D direction and 2G prediction are not yet.
+
+### Verification-code failures (a pattern, recorded)
+
+Three times in this run a *verification* script of mine reported a problem that
+did not exist, while the artifact under test was correct:
+
+1. a regex that could not read U+2212 MINUS SIGN, so every negative number in a
+   report table read as "row not found";
+2. a tolerance of 5e-4 applied to report values deliberately written at 2 dp;
+3. a corpus check that summed rows per path instead of only paths with >=8
+   revisions, producing a phantom 65-revision mismatch against a correct
+   manifest (real figures: 727 files / 17974 revisions / 10 repos, verified
+   per-repo, delta 0 on every repo).
+
+Each was caught only by drilling into per-item detail -- per-repo, per-row --
+rather than trusting a single aggregate number. The lesson is not "be careful";
+it is that a checker is itself an artifact and needs the same scepticism as the
+thing it checks. Every verification script written in this run should be
+treated as unverified until it has been shown to fail on a deliberate
+violation.
+
+Cross-reference: M invariant I9 exists because a hand-checked value drifted
+from its artifact; these three exist because the hand-check was wrong in the
+other direction.
