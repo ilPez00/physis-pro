@@ -219,52 +219,56 @@ of the **training** pool only.
 **PROCEDURE.** `p_target(k) = (fail_local(k) + λ·p_source(k)) / (n_local(k) + λ)`.
 
 **RESULT.** The decisive contrast is **source-shrinkage versus
-global-shrinkage**, both with their own tuned λ. Source-shrinkage does **not**
-beat global-shrinkage consistently:
+global-shrinkage**, both with their own tuned λ. 15 partitions per target
+(45 partition-runs, sources cycled):
 
-| N | source − global (median) | source beats global (frac of splits) |
+| N | source − global (median) | source beats global (frac) |
 |---|---|---|
-| 1 | +0.022 | 0.67 |
-| 2 | +0.022 | 0.67 |
-| 3 | +0.014 | 0.53 |
-| 5 | +0.003 | 0.53 |
-| 10 | +0.001 | 0.60 |
-| 20 | +0.004 | 0.53 |
-| 30 | **−0.001** | **0.40** |
+| 1 | **+0.020** | **0.60** |
+| 2 | −0.004 | 0.49 |
+| 3 | +0.002 | 0.51 |
+| 5 | +0.0005 | 0.51 |
+| 10 | −0.004 | 0.42 |
+| 20 | −0.003 | 0.44 |
+| 30 | −0.002 | **0.38** |
 
-At very small N the source adds a small positive increment (~+0.02 AUC, positive
-in two-thirds of splits). By N=30 it is *negative* and below chance-level
-consistency. Shrinkage toward the source does beat plain Laplace smoothing,
-but so does shrinkage toward the target's own base rate — and once the two are
-compared directly, the source's apparent advantage largely disappears.
+The source prior helps **only at N=1**, and marginally: +0.020 AUC, better in
+60% of splits — barely above a coin flip. From N=2 onward the median difference
+is at or below zero and the fraction of splits favouring the source falls to
+0.38 by N=30. Shrinkage toward the source does beat plain Laplace smoothing in
+the earlier 150-partition run, but so does shrinkage toward the target's own
+base rate, and in the direct comparison the source's advantage evaporates.
+
+**Stability across partition counts.** Two independent runs (5 and 15
+partitions) agree on the direction: median source-minus-global is ≤ +0.02 at
+every N, and *negative* at the largest N in both. They disagree on the
+companion claims — `shrinkage_beats_laplace_at_every_N` reads True at 150
+partitions but False at 5 and 15 — which is a real λ-selection instability and
+is why no companion claim is promoted here.
 
 **VERDICT.** **The strong claim survives.** Cross-agent information does not
 carry usable signal beyond what the target can supply about itself. Naive
-transfer fails, *and* the charitable re-use as shrinkage fails too, against the
-right control. The apparent gain from beating Laplace is a property of
-shrinkage, not of the source.
+transfer fails, *and* the charitable re-use as shrinkage fails against the
+right control. The one exception is a marginal, non-persistent gain at N=1
+(one session of local history), which disappears as soon as any local data
+accumulates.
 
-**LIMITATION — this run is underpowered and must be re-run.** The estimates
-above come from **5 partitions**, because the box OOM-killed the 150-partition
-runs twice (swap is 17 GiB / 17 GiB exhausted at the system level; both
-attempts died before writing output). At 5 partitions the companion claim
-`shrinkage_beats_laplace_at_every_N` reads *False*, whereas the earlier
-150-partition run that completed read *True* — so the λ-selection instability
-is real and 5 partitions cannot settle the magnitudes. The **direction** of the
-source-vs-global result is stable across both (median ≤ +0.02 everywhere, and
-negative at the largest N), which is why the qualitative verdict is stated, but
-the numbers should not be quoted until a larger run completes. A 40-partition
-re-run was started and is recorded in the artifact's own metadata.
+**LIMITATION.** 15 partitions is adequate for the direction and inadequate for
+tight magnitudes; the difference being estimated (+0.005 to +0.02 AUC) is of
+the same order as its own partition-to-partition spread. The λ grid is coarse
+(8 values); a finer grid could shift which λ is selected without changing the
+ordering, but the effects here are small enough that grid resolution could
+matter. The 150-partition run that would settle the magnitudes has been
+**OOM-killed twice** and remains a blocker.
 
-**BLOCKER.** Memory. `research/p1_all_targets_coldstart.py` (16200 cells) and
-`p1_shrinkage_prior.py` (150 partitions) both exceed what this box can run
-alongside its other services. Reduced partition counts and
-`OMP_NUM_THREADS=1` are the workaround; the corpus and these experiments would
-run comfortably on a box with headroom.
+**BLOCKER.** Memory. `p1_shrinkage_prior.py --partitions 150` and
+`p1_all_targets_coldstart.py --partitions 200` both exceed what this box can
+run alongside its other services (swap is 17 GiB / 17 GiB exhausted
+system-wide; both attempts died before writing output). Reduced partition
+counts and `OMP_NUM_THREADS=1` are the workaround.
 
-**REPRODUCTION.** `python3 research/papers/p1_shrinkage_prior.py --partitions 40`
-**ARTIFACT.** `research/p1_shrinkage_prior.json` (records its own
-`n_partitions`; check it before quoting any number above)
+**REPRODUCTION.** `python3 research/papers/p1_shrinkage_prior.py --partitions 15`
+**ARTIFACT.** `research/p1_shrinkage_prior.json` (records `n_partitions: 15`)
 
 ---
 
