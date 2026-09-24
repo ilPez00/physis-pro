@@ -1,0 +1,157 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{natbib}
+
+\title{Semantic Trajectories of Evolving Software Objects}
+
+\author{Physis Research Program}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Revisions of a single source file form a low-dimensional directed semantic
+trajectory in embedding space. We analyze six files from a Rust codebase
+and find that (1) within-object distances are 4--14{\times} smaller than
+between-object distances, (2) five of six files show temporal direction
+(Spearman $\rho$ up to +0.976, outside a 2000-permutation shuffled-time
+null), and (3) the trajectories occupy 2--3 dimensions of the 768-dimensional
+embedding space (57--82\% of variance in the first two components). A sixth
+file (\texttt{quality.rs}) fails the direction test because it wanders and
+returns --- an honest failure mode that reveals the limits of trajectory
+analysis. Document-level identity survives; paragraph-level identity
+dissolves.
+\end{abstract}
+
+\section{Introduction}
+
+Software objects evolve. A source file accumulates revisions; each revision
+is a state of the object at a point in time. The question is whether these
+states form a \emph{trajectory} --- a continuous, directed path through
+representation space --- or a set of independent points.
+
+This question has practical implications. If revisions form a trajectory,
+then (a) semantic search should use trajectory queries, not point queries;
+(b) change prediction should extrapolate the trajectory, not predict from
+a static embedding; (c) object identity should be defined by trajectory
+proximity, not point proximity.
+
+We test this on six files from a Rust codebase, using BGE-base embeddings
+(768 dimensions, \texttt{onnx-explicit} backend). We measure three
+properties: identity (within-object distance vs.\ between-object
+distance), direction (Spearman correlation of drift with time, against a
+shuffled-time null), and structure (spectral concentration of the
+trajectory).
+
+\section{Method}
+
+For each file $f$, we:
+\begin{enumerate}
+\item Extract all revisions $r_1, \ldots, r_n$ from git history.
+\item Embed each revision (chunked at 1500 characters, mean-pooled into a
+single 768-d vector).
+\item Compute drift $d_i = \|v_i - v_1\|$ (distance from the first revision).
+\item Compute Spearman correlation $\rho(i, d_i)$ against a 2000-permutation
+shuffled-time null.
+\item Compute spectral concentration: the fraction of variance in the first
+two eigenvalues of the centered Gram matrix.
+\end{enumerate}
+
+\section{Data}
+
+Six files from a Rust codebase (\texttt{physis-pro}), spanning 8--27
+revisions each:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{File} & \textbf{Revisions} & \textbf{Drift range} & \textbf{Spearman $\rho$} & \textbf{2D var} \\
+\midrule
+\texttt{hypothesis.rs} & 12 & 0.026 & +0.930 & 0.766 \\
+\texttt{main.rs} & 27 & 0.116 & +0.626 & 0.621 \\
+\texttt{studio.rs} & 17 & 0.037 & +0.939 & 0.761 \\
+\texttt{act.rs} & 8 & 0.053 & +0.976 & 0.817 \\
+\texttt{ontology.rs} & 8 & 0.043 & +0.929 & 0.740 \\
+\texttt{quality.rs} & 9 & 0.025 & +0.250 & 0.569 \\
+\bottomrule
+\end{tabular}
+\caption{Trajectory analysis of six source files. Drift range is the
+difference between maximum and minimum distance from the first revision.
+2D var is the fraction of variance explained by the first two eigenvalues
+of the Gram matrix.}
+\label{tab:trajectories}
+\end{table}
+
+\section{Results}
+
+\subsection{Identity}
+
+Within-object distances (mean pairwise cosine distance between revisions
+of the same file) are 4--14{\times} smaller than between-object distances
+(mean cosine distance between revisions of different files). A file's
+revisions form a tight region of the embedding field; a different file is
+elsewhere.
+
+\subsection{Direction}
+
+Five of six files show temporal direction: Spearman $\rho$ ranges from
++0.626 to +0.976, all outside the 2000-permutation shuffled-time null
+(which spans approximately [-0.4, +0.7] for most files). The sixth file,
+\texttt{quality.rs}, fails: $\rho = +0.250$, inside the null. Its drift
+profile shows why: it wanders and comes back, so distance-from-origin
+stops being a clock.
+
+\subsection{Structure}
+
+The first two eigenvalues of the centered Gram matrix carry 0.569--0.817
+of the variance. These trajectories are 2--3-dimensional objects living in
+a 768-dimensional space: a spectrum with a knee, not noise.
+
+\subsection{Granularity}
+
+At document level, identity survives: the document's pooled embedding is
+closer to its own sections than to another document's sections (nesting
+margin 0.02--0.03). At paragraph level, identity dissolves: a paragraph of
+one document is nearly as far from another paragraph of the same document
+(0.379) as from a paragraph of a different document (0.405).
+
+Positional direction --- whether a text moves away from its opening as it
+proceeds --- is a property of genre, not of text. A developmental document
+(the world-map machine plan) shows strong positional direction at section
+level ($\rho = +0.665$); a reference document (WHAT\_PHYSIS\_IS) does not
+($\rho = +0.083$).
+
+\section{Discussion}
+
+\textbf{Software objects are trajectories.} The evidence supports the claim
+that revisions of a single file form a low-dimensional directed trajectory,
+not a set of independent points. The trajectory is 2--3 dimensional,
+temporally directed (in 5/6 cases), and bounded (within-object distance
+4--14{\times} smaller than between-object).
+
+\textbf{The failure mode is informative.} \texttt{quality.rs} fails the
+direction test because it wanders and returns. This is the honest failure
+mode of trajectory analysis: when an object's evolution is not monotonic,
+distance-from-origin is not a clock. The failure is visible in the same
+table as the successes, not averaged away.
+
+\textbf{Identity dissolves below document granularity.} A document's
+paragraphs are not a tighter cluster than paragraphs from different
+documents. Whatever ``the same object'' means at revision scale, it is not
+recoverable from a paragraph. This is consistent with the E80 finding that
+pooling a project into one vector destroys signal.
+
+\textbf{Limits.} One repository, one embedder (BGE-base-en-v1.5), six
+files, one metadata axis (commit time). The trajectory instrument is
+available as \texttt{physis-core/examples/reference\_spectrum.rs}; the
+harness is \texttt{benchmarks/conatus/e78\_reference\_spectrum.py}. The
+expansion to thousands of files across public repos (the P10 experiment
+in the portfolio) is the highest-priority external replication.
+
+\end{document}

@@ -1,0 +1,232 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{natbib}
+
+\title{Representation Instability in Induced Ontologies}
+
+\author{Physis Research Program}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Cross-embedder ontology agreement on induced clusterings is near chance
+(ARI $\approx 0.10$). We trace the full arc from ``geometry can certify
+ontology membership'' to ``geometry is unreliable for certification but
+useful for proposal'' through 18 experiments on a 658-entry, 57-cell
+ontology. The dominant cause is representation instability: different
+embedder cones point in different directions, and no rank intervention
+recovers the geometry. Anisotropy is a measured covariate (mean pairwise
+cosine 0.53--0.56, slope $-0.489$ per unit), not a lever. The practical
+consequence is a division of labour: geometry proposes, humans dispose.
+\end{abstract}
+
+\section{Introduction}
+
+Ontology induction --- discovering taxonomic structure from data --- is a
+founding promise of representation learning. If embeddings capture
+semantic similarity, then clustering embeddings should recover ontological
+structure. We test this on a 658-entry, 57-cell industrial ontology
+(5 domains $\times$ 14 modes), using three vector sets over the same
+entries: BGE-base with name+hints text, BGE-base with name-only text, and
+Nomic-embed.
+
+The result is a settled negative: cross-embedder adjusted Rand index (ARI)
+is 0.108--0.178, near chance. The negative is now well-understood: the
+disagreement has a measurable covariate (anisotropy) and a known mechanism
+(cone orientation differs by embedder). But the negative does not imply
+uselessness: geometry remains a powerful proposal mechanism.
+
+\section{Experiments}
+
+\subsection{Cross-embedder ARI}
+
+Cross-embedder clustering ARI was measured with spherical k-means at
+$k = 57$ (the number of true cells), with ARI computed against the true
+cell assignments:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Vector set} & \textbf{Anisotropy} & \textbf{Fit ARI} & \textbf{Cross-embedder ARI} \\
+\midrule
+BGE name+hints & 0.558 & 0.062 & 0.108 \\
+BGE name-only & 0.562 & 0.066 & 0.165 \\
+Nomic-embed & 0.527 & 0.080 & 0.178 \\
+\bottomrule
+\end{tabular}
+\caption{Anisotropy (mean pairwise cosine), fit ARI against true cells,
+and cross-embedder clustering ARI. All near chance (ARI = 0).}
+\label{tab:ari}
+\end{table}
+
+The covariate's predicted direction holds: the least anisotropic set
+(Nomic, 0.527) has the best fit to true cells (0.080), and the slope of
+fit ARI against anisotropy is $-0.489$ per unit. Three points cannot
+separate a slope from noise; what is reproducible is the ARI itself.
+
+\subsection{Injection realism}
+
+The central confound was identified in E14: the injection policy
+determines the verdict.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lc}
+\toprule
+\textbf{Injection policy} & \textbf{AUC} \\
+\midrule
+Random cell (original) & 0.880 \\
+Same domain, different mode & 0.827 \\
+Same mode, different domain & 0.771 \\
+Nearest alternative cell & 0.506 \\
+Real misfilings (E16) & 0.519 \\
+\bottomrule
+\end{tabular}
+\caption{Injection realism. Making the injected error plausible drops the
+scorer to chance, and closes the 0.410/0.866 gap this track carried
+unexplained throughout.}
+\label{tab:injection}
+\end{table}
+
+The scorer detects \emph{distance moved}, not wrongness. A random injection
+displaces an entry 0.125 below its home similarity; a plausible error,
+0.029.
+
+\subsection{Structural scorers}
+
+Five scorers were compared under four injection policies (E15):
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Scorer} & \textbf{Random inj.} & \textbf{Nearest inj.} \\
+\midrule
+COSINE & 0.882 & 0.506 \\
+NAME-ONLY & 0.866 & 0.597 \\
+CONSTRAINT & 0.675 & 0.612 \\
+ANCHORVOC & 0.654 & 0.584 \\
+ANCESTRY & 0.627 & 0.566 \\
+\bottomrule
+\end{tabular}
+\caption{Structural scorers under two injection policies. Under random
+injection, cosine leads by 0.207. Under realistic injection, cosine trails
+CONSTRAINT by 0.106. Stage 12's comparison was invalid.}
+\label{tab:scorers}
+\end{table}
+
+Under random injection, cosine leads. Under realistic injection, it
+trails. This does not show the structural scorers work --- the best is
+0.612, not a usable certifier --- but it shows the comparison that
+established ``plain cosine beats every structural alternative'' was an
+artifact of the injection policy.
+
+\subsection{ANCHORVOC and the length artifact}
+
+ANCHORVOC (lexical overlap with the cell's authored anchor hints) scored
+0.664 on real misfilings (E16), beating cosine's 0.519 by +0.145. It was
+the only scorer that won on real data. It was also an entry-length
+artifact: entry length alone reached 0.619 of the 0.664, and no vocabulary
+effect survived controlling for it (E18).
+
+\subsection{Propose, do not certify}
+
+The one positive that survives its construction-matched null is E21:
+geometry as a proposer, not a judge. Top-3 containment of the rater's own
+cell achieved 0.712 against a permuted-label null of 0.136, with the
+learning curve still climbing at 436 decisions. The geometry did not get
+better --- a number filed as a failure (0.447 top-1) is the same number
+that makes a usable proposer once the output is three candidates instead of
+one.
+
+\section{The arc}
+
+The research lineage is:
+
+\begin{enumerate}
+\item \textbf{Claim:} geometry can certify ontology membership.
+\item \textbf{E1:} cross-embedder divergence is at chance.
+\item \textbf{E2--E5:} the taxonomy is not the constraint; the grid is not
+the constraint.
+\item \textbf{E14:} the injection policy determines the verdict.
+\item \textbf{E15:} the structural scorers do not survive the correction.
+\item \textbf{E16:} all geometric scorers are at chance on real misfilings.
+\item \textbf{E17--E18:} ANCHORVOC is an entry-length artifact.
+\item \textbf{Verdict:} no tested mechanism detects a real misfiling. The
+central negative stands, now for the right reason.
+\item \textbf{E21:} geometry can propose. The task formulation changes,
+not the representation.
+\item \textbf{E88--E90:} anisotropy is real but not a lever; rank
+intervention fails.
+\end{enumerate}
+
+Four experiments each correcting the last, ending at the position the track
+held before E14 --- for entirely different and much better reasons.
+
+\section{Discussion}
+
+\textbf{The instrument, not the mechanism.} The cross-embedder refutation
+is reproducible (a new clustering implementation lands in the same band).
+But the instrument --- the corpus, the embedding model, the clustering
+algorithm --- dominates the mechanism. Geometry is unreliable for
+certification because the representation is unstable, not because the
+ontology is absent.
+
+\textbf{The division of labour.} The propose/certify distinction is the
+finding. Geometry converts human decisions into leverage over the remaining
+ones (top-3 0.712 vs.\ null 0.136). It does not replace the human. The
+practical rule: sell the filter, not the judgement.
+
+\textbf{Limits.} One corpus (658 entries, 57 cells), one embedder pair
+(BGE-base vs.\ Nomic-embed), one clustering algorithm (spherical k-means).
+The externalization to WordNet/SUMO/DOLCE with 3+ embedders is the
+highest-priority replication. The anisotropy slope rests on three points
+and we treat it as exploratory, not as an established relationship.
+
+\section*{Reproducibility and provenance}
+
+Every numerical claim in this paper now resolves to a stored result file.
+
+The headline results --- the anisotropy measurements, the fit ARIs, and the
+cross-embedder ARIs --- come from
+\texttt{research/mapper/e88\_results.json} and
+\texttt{research/mapper/e90\_results.json}, produced by
+\texttt{e88\_anisotropy\_covariate.py} and \texttt{e90\_rank\_intervention.py}.
+
+The comparison numbers from the E14--E18 chain were previously
+unreproducible: those four experiments shipped only as printing scripts and
+their output was never saved. They have since been re-run from the surviving
+corpus and ground truth, and the recovered values are stored in
+\texttt{research/e15\_e18\_rerun.json} (raw output in
+\texttt{research/e15\_e18\_rerun\_raw.txt}, parsed by
+\texttt{research/papers/parse\_e1518.py}). The re-run reproduced the
+originally reported figures:
+
+\begin{itemize}
+\item the random-injection AUCs (COSINE 0.882, NAME-ONLY 0.866,
+  CONSTRAINT 0.675, ANCHORVOC 0.654, ANCESTRY 0.627),
+\item the nearest-cell injection fall (COSINE 0.506, CONSTRAINT 0.612),
+\item the real-misfiling battery (COSINE 0.519, NAME-ONLY 0.508,
+  CONSTRAINT 0.536, ANCHORVOC 0.664, ANCESTRY 0.534, base rate 80.1\%),
+\item the length control that closes ANCHORVOC (entry length alone 0.619;
+  normalised ANCHORVOC vs.\ length-only $+0.048$ [$-0.019$, $+0.116$],
+  not significant).
+\end{itemize}
+
+One number deserves emphasis because the re-run changed its status from
+assertion to measurement: E18's port check shows the Python scorer
+reproduces the original Rust values for CONSTRAINT ($r = 0.943$) and
+ANCESTRY ($r = 0.976$) but \emph{not} for COSINE ($r = 0.197$). The
+divergence is expected --- the original used MiniLM, this corpus uses
+BGE --- and it means the structural scorers are embedder-independent while
+geometry is not. That is a stronger version of this paper's thesis and it
+is now measured rather than inferred.
+
+\end{document}

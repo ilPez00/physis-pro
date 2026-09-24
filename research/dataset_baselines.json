@@ -1,0 +1,254 @@
+{
+  "corpus": {
+    "sessions": 402,
+    "actions": 75933,
+    "harnesses": {
+      "claude-code": {
+        "sessions": 42,
+        "actions": 14457
+      },
+      "codex": {
+        "sessions": 3,
+        "actions": 662
+      },
+      "cline": {
+        "sessions": 69,
+        "actions": 12354
+      },
+      "opencode": {
+        "sessions": 288,
+        "actions": 48460
+      }
+    },
+    "machines": {
+      "pansa": 68,
+      "omo": 197,
+      "feather": 137
+    },
+    "distinct_kinds": 871,
+    "distinct_tools": 133,
+    "session_sizes": {
+      "median": 101.0,
+      "max": 2014,
+      "min": 20,
+      "p90": 471.60000000000014,
+      "n": 402
+    }
+  },
+  "levels": {
+    "kind": {
+      "claude-code": {
+        "auc": 0.6274413268209684,
+        "n_actions": 14457
+      },
+      "cline": {
+        "auc": 0.7505779368334073,
+        "n_actions": 12354
+      },
+      "codex": {
+        "auc": 0.46147566718995287,
+        "n_actions": 662
+      },
+      "opencode": {
+        "auc": 0.6804461941039224,
+        "n_actions": 48460
+      },
+      "n_keys": 871
+    },
+    "tool": {
+      "claude-code": {
+        "auc": 0.5252316893738177,
+        "n_actions": 14457
+      },
+      "cline": {
+        "auc": 0.4459516208627259,
+        "n_actions": 12354
+      },
+      "codex": {
+        "auc": 0.44609105180533754,
+        "n_actions": 662
+      },
+      "opencode": {
+        "auc": 0.4911797332280582,
+        "n_actions": 48460
+      },
+      "n_keys": 133
+    },
+    "kind_prefix": {
+      "claude-code": {
+        "auc": 0.5252316893738177,
+        "n_actions": 14457
+      },
+      "cline": {
+        "auc": 0.4459516208627259,
+        "n_actions": 12354
+      },
+      "codex": {
+        "auc": 0.507817896389325,
+        "n_actions": 662
+      },
+      "opencode": {
+        "auc": 0.4911797332280582,
+        "n_actions": 48460
+      },
+      "n_keys": 131
+    }
+  },
+  "tools": {},
+  "kinds": {
+    "top_by_frequency": [
+      {
+        "kind": "read",
+        "n": 10082,
+        "rate": 0.0428
+      },
+      {
+        "kind": "edit",
+        "n": 6169,
+        "rate": 0.0439
+      },
+      {
+        "kind": "bash:cd",
+        "n": 3818,
+        "rate": 0.0731
+      },
+      {
+        "kind": "bash:grep",
+        "n": 3024,
+        "rate": 0.0182
+      },
+      {
+        "kind": "bash:ls",
+        "n": 2495,
+        "rate": 0.0269
+      },
+      {
+        "kind": "bash:git",
+        "n": 2459,
+        "rate": 0.0659
+      },
+      {
+        "kind": "bash:praxis_webapp",
+        "n": 2414,
+        "rate": 0.0199
+      },
+      {
+        "kind": "bash:physis-pro",
+        "n": 2399,
+        "rate": 0.1988
+      },
+      {
+        "kind": "bash:rtk",
+        "n": 2262,
+        "rate": 0.0332
+      },
+      {
+        "kind": "bash:cat",
+        "n": 2058,
+        "rate": 0.0442
+      },
+      {
+        "kind": "bash:sed",
+        "n": 2005,
+        "rate": 0.0185
+      },
+      {
+        "kind": "grep",
+        "n": 1878,
+        "rate": 0.0133
+      },
+      {
+        "kind": "editor",
+        "n": 1667,
+        "rate": 0.0174
+      },
+      {
+        "kind": "bash:ssh",
+        "n": 1497,
+        "rate": 0.0381
+      },
+      {
+        "kind": "bash:echo",
+        "n": 1488,
+        "rate": 0.0276
+      }
+    ],
+    "highest_rate_n20": [
+      {
+        "kind": "bash:physis_loop",
+        "n": 20,
+        "rate": 0.45
+      },
+      {
+        "kind": "bash:examples",
+        "n": 23,
+        "rate": 0.4348
+      },
+      {
+        "kind": "bash:apksigner",
+        "n": 54,
+        "rate": 0.4074
+      },
+      {
+        "kind": "bash:cargo",
+        "n": 1418,
+        "rate": 0.3329
+      },
+      {
+        "kind": "bash:python",
+        "n": 83,
+        "rate": 0.3133
+      },
+      {
+        "kind": "bash:physis_pro",
+        "n": 168,
+        "rate": 0.3036
+      },
+      {
+        "kind": "bash:android",
+        "n": 47,
+        "rate": 0.2553
+      },
+      {
+        "kind": "bash:pkill",
+        "n": 144,
+        "rate": 0.2222
+      },
+      {
+        "kind": "bash:physis-pro",
+        "n": 2399,
+        "rate": 0.1988
+      },
+      {
+        "kind": "webfetch",
+        "n": 184,
+        "rate": 0.1902
+      },
+      {
+        "kind": "bash:python3.13",
+        "n": 69,
+        "rate": 0.1884
+      },
+      {
+        "kind": "bash:physis-core",
+        "n": 1058,
+        "rate": 0.1786
+      },
+      {
+        "kind": "task",
+        "n": 139,
+        "rate": 0.1727
+      },
+      {
+        "kind": "bash:bluetoothctl",
+        "n": 60,
+        "rate": 0.1667
+      },
+      {
+        "kind": "bash:pip",
+        "n": 38,
+        "rate": 0.1579
+      }
+    ]
+  }
+}

@@ -304,3 +304,8 @@ path = "examples/empedocles_criticality.rs"
 name = "empedocles_no_regression"
 required-features = ["empedocles"]
 path = "examples/empedocles_no_regression.rs"
+
+[[example]]
+name = "empedocles_multiseed"
+required-features = ["empedocles"]
+path = "examples/empedocles_multiseed.rs"

@@ -1,0 +1,153 @@
+{
+  "source": "empedocles_multiseed.json",
+  "settings": {
+    "0": {
+      "n_runs": 16,
+      "n_clusters": 50,
+      "mean_largest": 0.4877083750000001,
+      "regimes": [
+        "Critical",
+        "Supercritical"
+      ],
+      "fit": {
+        "xmin": 76,
+        "alpha": 3.558447249183133,
+        "ks": 0.09123725113976944,
+        "n_tail": 34,
+        "vuong_R": 4.169835001731577,
+        "vuong_p": 0.29144674181672126,
+        "verdict": "no difference (indistinguishable)",
+        "lognormal_shape": 0.2906460456801551
+      }
+    },
+    "0.001": {
+      "n_runs": 16,
+      "n_clusters": 16,
+      "mean_largest": 1.0,
+      "regimes": [
+        "Supercritical"
+      ],
+      "fit": null,
+      "note": "too few clusters to fit"
+    },
+    "0.003": {
+      "n_runs": 16,
+      "n_clusters": 16,
+      "mean_largest": 1.0,
+      "regimes": [
+        "Supercritical"
+      ],
+      "fit": null,
+      "note": "too few clusters to fit"
+    },
+    "0.006": {
+      "n_runs": 16,
+      "n_clusters": 81,
+      "mean_largest": 0.9862499375,
+      "regimes": [
+        "Supercritical"
+      ],
+      "fit": {
+        "xmin": 2,
+        "alpha": 1.2013433580905688,
+        "ks": 0.5340765567475463,
+        "n_tail": 17,
+        "vuong_R": -17.38358421800767,
+        "vuong_p": 0.04586452990126046,
+        "verdict": "lognormal beats power law",
+        "lognormal_shape": 1.1757364115444109
+      }
+    },
+    "0.01": {
+      "n_runs": 16,
+      "n_clusters": 2507,
+      "mean_largest": 0.346458125,
+      "regimes": [
+        "Critical",
+        "Subcritical"
+      ],
+      "fit": {
+        "xmin": 82,
+        "alpha": 4.872248438130092,
+        "ks": 0.16644654686120197,
+        "n_tail": 15,
+        "vuong_R": -2.5213019708285445,
+        "vuong_p": 0.3959422154450877,
+        "verdict": "no difference (indistinguishable)",
+        "lognormal_shape": 0.1435938234670319
+      }
+    },
+    "0.02": {
+      "n_runs": 16,
+      "n_clusters": 4576,
+      "mean_largest": 0.009375125000000002,
+      "regimes": [
+        "Subcritical"
+      ],
+      "fit": {
+        "xmin": 3,
+        "alpha": 4.999994015319078,
+        "ks": 0.9,
+        "n_tail": 20,
+        "vuong_R": -0.8907819872602327,
+        "vuong_p": 0.8559666324925583,
+        "verdict": "no difference (indistinguishable)",
+        "lognormal_shape": 0.12486453973408829
+      }
+    },
+    "0.04": {
+      "n_runs": 16,
+      "n_clusters": 4722,
+      "mean_largest": 0.0068753124999999995,
+      "regimes": [
+        "Subcritical"
+      ],
+      "fit": {
+        "xmin": 2,
+        "alpha": 4.999993465554736,
+        "ks": 0.987012987012987,
+        "n_tail": 77,
+        "vuong_R": -89.09525029372318,
+        "vuong_p": 0.013676549936476438,
+        "verdict": "lognormal beats power law",
+        "lognormal_shape": 0.04590601120455281
+      }
+    },
+    "0.08": {
+      "n_runs": 16,
+      "n_clusters": 4747,
+      "mean_largest": 0.00750025,
+      "regimes": [
+        "Subcritical"
+      ],
+      "fit": {
+        "xmin": 2,
+        "alpha": 4.999993364271991,
+        "ks": 0.9183673469387755,
+        "n_tail": 49,
+        "vuong_R": -18.880570437671285,
+        "vuong_p": 0.012831031407584731,
+        "verdict": "lognormal beats power law",
+        "lognormal_shape": 0.11101806664091718
+      }
+    },
+    "0.16": {
+      "n_runs": 16,
+      "n_clusters": 4758,
+      "mean_largest": 0.006041875,
+      "regimes": [
+        "Subcritical"
+      ],
+      "fit": {
+        "xmin": 2,
+        "alpha": 4.999994260601151,
+        "ks": 1.0,
+        "n_tail": 42,
+        "vuong_R": null,
+        "vuong_p": null,
+        "verdict": "undetermined",
+        "lognormal_shape": 1.1102230246251565e-16
+      }
+    }
+  }
+}

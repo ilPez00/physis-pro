@@ -1,0 +1,205 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{natbib}
+
+\title{The Null Is Part of the Instrument: Construction-Matched Controls in AI-Assisted Experimental Research}
+
+\author{Physis Research Program}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+In AI-assisted empirical research, the construction-matched null is not a
+formality but the primary instrument. We document twelve cases from a
+three-month research program where the null's design determined the
+verdict: a positive result survived only when a control specifically
+capable of killing the claimed mechanism failed to kill it. We propose
+that null design is a first-class research concern and that the quality
+of a study is determined by the quality of its nulls, not by the
+sophistication of its models.
+\end{abstract}
+
+\section{Introduction}
+
+The standing rule of experimental software research is: a positive result
+is an artifact until a control specifically capable of killing the
+claimed mechanism fails to kill it. This rule is easy to state and hard
+to practice. In AI-assisted research, where agents design, implement, and
+interpret their own experiments, the temptation to run a token control
+--- one that cannot fail --- is strong.
+
+We document twelve cases where the null's design determined the verdict.
+In six cases, a pre-registered null killed a positive result. In four
+cases, a control that appeared valid was shown to be invalid by a second
+test. In two cases, a control that was valid at one model scale became
+invalid at another.
+
+\section{The Null Is the Instrument}
+
+Consider the canonical experiment: a system claims to detect misfiled
+ontology entries at AUC 0.880. The claim is tested against a null. If
+the null is construction-matched --- if it places errors where the system
+cannot detect them --- then the 0.880 is meaningful. If the null is
+token --- if it places errors at random, where any distance-based scorer
+can detect them --- then the 0.880 is a measurement of the null's
+weakness, not the system's strength.
+
+In our research, the injection policy (random vs.\ nearest-cell) changed
+the AUC from 0.880 to 0.506. The system was the same. The metric was the
+same. Only the null changed. The null is the instrument.
+
+This is not a subtle point. In the perspective-discovery track, the
+central negative result --- cross-embedder ontology agreement is near
+chance --- was established not by a new clustering algorithm but by a new
+null: conditioning on the stronger support instead of the baseline. The
+mechanism (D = |s1 - s2| is a folded read-out of s2) was identified by
+the null, not by the positive result.
+
+\section{Twelve Cases}
+
+We organize the twelve cases by the phase of research they affect.
+
+\subsection{Design Phase}
+
+\textbf{Case 1: Injection distribution (E14).} Claim: geometry scores
+misfilings at AUC 0.880. Null: injection at nearest alternative cell.
+Result: AUC 0.506. The null killed the claim by changing only where
+errors were placed.
+
+\textbf{Case 2: Fixture circularity (E83).} Claim: antonym rule detects
+contradiction. Null: hand-written fixtures without lexical antonyms.
+Result: recall 0.143 vs.\ 0.998 on generated fixtures. The null killed
+the claim by removing the generator's circularity.
+
+\textbf{Case 3: Adversarial fixtures (E85).} Claim: structured rules
+achieve precision 1.000. Null: adversarial fixtures designed to fire
+each rule wrongly. Result: precision 0.000. The null killed the claim by
+inviting the rules to fail.
+
+\textbf{Case 4: Scale-dependent controls (E19b).} Claim: five congruent
+domains improve abstraction. Null: control arm B5c (five coupled domains,
+each failing a different clause). Result: the control fires at 4B but is
+valid at 9B. The null's validity was a property of the stimulus and the
+model together.
+
+\subsection{Implementation Phase}
+
+\textbf{Case 5: Harness parsing (E74).} Claim: Cline is a reliable
+agent. Null: check whether shell actions have output. Result: failure
+rate 0.005 (parser found no output) vs.\ 0.070 (parser reads output).
+The null killed the claim by checking the parser, not the agent.
+
+\textbf{Case 6: Duplicate sessions (E73).} Claim: the corpus has 402
+sessions. Null: check for byte-identical session IDs across machines.
+Result: 188 duplicate records (47\% inflation). The null killed the
+count by checking for duplicates, not by trusting the file count.
+
+\textbf{Case 7: Truncated embeddings (E78).} Claim: revisions form a
+tight region. Null: check whether the embedding covers the whole file.
+Result: first 1200 bytes produced identical vectors (within-object
+distance 0.0000). The null killed the claim by measuring the embedding
+coverage.
+
+\textbf{Case 8: Parser measuring the wrong field (E76).} Claim: coherence
+improves after perturbation. Null: check whether the parser reads
+coherence or node count. Result: parser picked up node count. The null
+killed the claim by inspecting the parser.
+
+\subsection{Interpretation Phase}
+
+\textbf{Case 9: Confound check that stops early (E17).} Claim: ANCHORVOC
+is not circular. Null: three tests (predicts rater's choice; survives
+half the hints; same on hint-leaking entries). Result: Test 3 fails.
+The null killed the claim by requiring all three tests to pass.
+
+\textbf{Case 10: Baseline drift (E87).} Claim: pooled baseline scores
+0.400. Null: rerun the baseline in the same script. Result: 0.200. The
+null killed the claim by rerunning, not by trusting the previous number.
+
+\textbf{Case 11: Aggregation hiding components (E81).} Claim: static
+rules find no structure (ratio 0.96). Null: decompose by cue arity.
+Result: multi-word cues 15:1, single-word cues 0.92:1. The null killed
+the claim by decomposing the aggregate.
+
+\textbf{Case 12: Pre-flight ignored (E10).} Claim: the experiment is
+powered. Null: power analysis. Result: STOP. The run proceeded anyway.
+The null was overridden by its author --- a control the author ignores is
+not a control.
+
+\section{Principles}
+
+From these cases we derive three principles:
+
+\textbf{P1: The null must be construction-matched.} A null that places
+errors where the system cannot detect them is not a control; it is a
+tautology. The null must perturb the claimed mechanism.
+
+\textbf{P2: The null's validity must be tested.} A control that passes
+one test and fails another is not a valid control. The workflow must
+require all pre-registered tests to pass, not just the first reassuring
+one.
+
+\textbf{P3: Baselines must be rerun in the same execution.} A baseline
+number cited from a previous run is an assertion about the past, not a
+measurement. Drift of 0.2 between runs is not rare; it is the norm.
+
+\section{Related Work}
+
+The importance of separating exploratory from confirmatory analysis is
+long-established in statistics \citep{tukey1980we}, and the cost of
+undisclosed analytic flexibility is well documented in psychology
+\citep{simmons2011false}. The novel contribution here
+is the \textbf{executable} null: a control that is run in the same
+script, on the same data, with the same code path, and whose result
+determines the verdict. In AI-assisted research, where agents can
+reinterpret results after the fact, the executable null is the only kind
+that cannot be argued with.
+
+The construction-matched null is related to the adversarial input used to
+probe machine-learning systems: both are designed to expose the limits of
+a system rather than to confirm its strengths. The difference is that the
+construction-matched null is pre-registered: it is specified before the
+experiment is run, not invented after the result is known. We cite no
+specific work for the adversarial-input analogy because we have not
+verified a primary source for it in this revision.
+
+\section{Limitations}
+
+The twelve cases are from one project, one user, one machine fleet. The
+frequency of each failure mode in other contexts is unknown. The
+principles are derived from cases where the null caught the error; we do
+not have a systematic study of cases where the null failed to catch an
+error that a human would have caught.
+
+\section{Conclusion}
+
+The construction-matched null is the primary instrument in AI-assisted
+empirical research. Its design determines what can be concluded. A
+positive result is an artifact until a null specifically capable of
+killing the claimed mechanism fails to kill it. Twelve cases demonstrate
+that this is not a philosophical preference but a practical necessity.
+
+\begin{thebibliography}{99}
+
+\bibitem[Tukey(1980)]{tukey1980we}
+Tukey, J.~W. (1980).
+\newblock We need both exploratory and confirmatory.
+\newblock \emph{The American Statistician}, 34(1), 23--25.
+\newblock DOI: 10.1080/00031305.1980.10482706.
+
+\bibitem[Simmons et al.(2011)]{simmons2011false}
+Simmons, J.~P., Nelson, L.~D., \& Simonsohn, U. (2011).
+\newblock False-positive psychology: Undisclosed flexibility in data
+collection and analysis allows presenting anything as significant.
+\newblock \emph{Psychological Science}, 22(11), 1359--1366.
+\newblock DOI: 10.1177/0956797611417632.
+
+\end{thebibliography}
+
+\end{document}
