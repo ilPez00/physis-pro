@@ -134,20 +134,39 @@ Order parameters, and a correction worth recording:
   percolation susceptibility drops the spanning cluster precisely for this
   reason.
 
-**Preliminary (N = 100, 300; 16 seeds each):** χ peaks at the *lowest* tested
-nemesis (0.0) at both sizes, with `largest_mean ≈ 0.5` there — half the nodes in
-one cluster. Between nemesis 0 and 0.002 the field jumps from several medium
-clusters to a single spanning cluster; from ~0.006 upward it fragments into
-many small ones. That non-monotonicity is the thing the sweep needs to resolve,
-and it is why the transition cannot be located from the published nine points.
+**Result (N = 100 and 300, 8 seeds each; artifact
+`research/p10_fss.json`, `partial: [100, 300]`).** The sweep finds **two
+distinct features**, not one:
 
-**Classification is reported only once all four node counts complete**, and the
-naming rule is fixed in advance: even if critical scaling is found, this is a
-**tuned** transition — `nemesis_strength` is an external knob — and therefore
-is **not** self-organized criticality. SOC requires the system to reach the
-critical point without external tuning. Nothing here can establish SOC.
+| | N=100 | N=300 |
+|---|---|---|
+| largest-cluster fraction at nemesis 0 | 0.521 | 0.498 |
+| chi (excl. largest) at nemesis 0 | 10.77 | 37.92 |
+| full fusion (largest = 1.000) at | nemesis 0.002–0.004 | nemesis 0.002–0.004 |
+| largest falls below 0.5 at | ~0.008 | ~0.0095 |
+| fragmented (largest < 0.02) from | 0.010 | 0.015 |
+| chi peak (excl. largest) | 1.62 at 0.008 | 2.28 at 0.012 |
 
-**LIMITATION.** The 3000-node runs are ~10.4 s per (seed, nemesis) pair, so that
+1. **A sharp fusion step** between nemesis 0 and 0.002, where the field goes
+   from ~3–4 medium clusters to a single cluster containing everything.
+2. **A fragmentation transition** between ~0.006 and ~0.020, where the largest
+   cluster collapses toward zero and chi peaks — this is the region the
+   published nine points sample too sparsely to resolve.
+
+**The scaling evidence points away from criticality, with one caveat.** The
+fragmentation transition is *wider* at the larger N (roughly 0.006–0.010 at
+N=100 versus 0.006–0.015 at N=300) while its midpoint barely moves (0.008 →
+0.0095). A critical transition sharpens as N grows; a broadening one is the
+signature of an ordinary crossover. Separately, chi at nemesis 0 grows
+essentially in proportion to N (10.77 → 37.92 for a 3× increase in N), which is
+what three O(N) clusters trivially produce and is **not** critical scaling.
+
+The caveat is decisive for what can be claimed: **two node counts cannot
+establish or refute a scaling exponent.** No exponent is fitted, none is
+reported, and the classification field in the artifact stays `null` because the
+sweep did not complete.
+
+**LIMITATION.** **LIMITATION.** The 3000-node runs are ~10.4 s per (seed, nemesis) pair, so that
 end of the sweep uses 8 seeds; the smallest N gets 16. Seed counts are
 therefore not equal across sizes, which weakens the error bars at the largest N
 exactly where they matter for a scaling collapse. A production run would
