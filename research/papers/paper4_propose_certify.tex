@@ -1,0 +1,324 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{natbib}
+
+\title{Propose, Do Not Certify: Representation Quality and the Judge/Proposer Gap}
+
+\author{Physis Research Program}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A representation that is an unreliable judge can still be a useful proposer
+--- but less decisively than a random-split evaluation suggests. On a
+582-entry, 57-cell ontology filing task, embedding geometry achieves top-3
+containment of the rater's own cell at 0.668 under a random train/test
+split against a matched 1{,}000-shuffle permuted-label null of 0.159. Under
+a \emph{sequential} split --- first $N$ decisions train, later decisions
+test, which is what a real user experiences --- top-3 falls to 0.541, the
+learning curve is no longer monotone, and the advantage over the random
+split is about thirteen points.
+
+We deliberately do \emph{not} subtract the proposer score from the
+classifier score. Containment in $\{0,1\}$ and ROC AUC are different metrics
+on different scales, and their difference has no interpretation; an earlier
+draft of this paper reported such a ``gap'' ($0.668-0.519$) and that
+arithmetic is withdrawn here. Each task is instead reported against its own
+matched null. Judged that way: as a proposer the representation clears its
+random-split permuted null by $+0.509$ top-3, and as a certifier it sits at
+chance ($0.519$ against a $0.5$ null, $n=574$). The surviving claim is
+therefore qualitative and about decision leverage --- the representation
+narrows 57 candidate cells to 3 and places the right one in that set
+54--67\% of the time, whereas the same representation asked to certify is
+uninformative --- not a numerical gap between two incommensurable scales.
+\end{abstract}
+
+\section{Introduction}
+
+Every refutation in the Physis research track refuted unsupervised,
+zero-shot judgement. COSINE, NAME-ONLY, CONSTRAINT, ANCESTRY and ANCHORVOC
+are fixed formulas with nothing fitted to a human decision, and on real
+misfilings they sit at chance (0.508--0.536). The supervised,
+human-in-the-loop version was never measured --- and the question a person
+filing 582 entries has is not ``is the machine right?'' but ``can it narrow
+57 cells to 3 so I choose instead of search?''
+
+The proposition we test is not that geometry can judge --- Section~5 shows
+it cannot --- but that it can propose: the representation that cannot judge
+may still usefully narrow a search. We measure that separately, in each case
+against the null appropriate to the task, and find the proposer's advantage
+real under both a random and a sequential split while the certifier's is
+absent under both. We do not report a distance between the two tasks, for
+the reasons given in Section~7.
+
+\section{Method}
+
+Ground truth is the rater's \emph{revised} cell in
+\texttt{refiling\_gate0.tsv}: 582 blind re-filings, 57 distinct target
+cells. The 76 non-blind entries are excluded. Vectors are the shipped
+bge-base-en-v1.5 768-d from \texttt{corpus.json}; no inference is run.
+
+Nearest-centroid over cells built from the decisions already made, scored
+as top-k containment of the rater's own cell, on a learning curve over how
+many decisions the rater has made. Five shuffles per point.
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Decisions seen} & \textbf{Top-1} & \textbf{Top-3} & \textbf{Top-5} \\
+\midrule
+58 & 0.211 & 0.385 & 0.465 \\
+145 & 0.307 & 0.508 & 0.591 \\
+291 & 0.368 & 0.595 & 0.689 \\
+\textbf{436} & \textbf{0.438} & \textbf{0.667} & \textbf{0.755} \\
+\bottomrule
+\end{tabular}
+\caption{Top-k containment of the rater's own cell, by number of decisions
+seen. The learning curve is still climbing at 436.}
+\label{tab:learning}
+\end{table}
+
+Controls at 436 decisions seen:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Arm} & \textbf{Top-1} & \textbf{Top-3} & \textbf{Top-5} \\
+\midrule
+\textbf{GEOMETRY} & \textbf{0.438} & \textbf{0.667} & \textbf{0.755} \\
+PRIOR old->new lookup & 0.184 & 0.368 & 0.474 \\
+MAJORITY & 0.089 & 0.255 & 0.359 \\
+\textbf{PERMUTED (null)} & 0.036 & 0.136 & 0.233 \\
+LEN-ONLY & 0.010 & 0.036 & 0.071 \\
+\bottomrule
+\end{tabular}
+\caption{Controls at 436 decisions, all arms at five random splits so the
+comparison is internally consistent. Geometry beats its permuted null by
++0.531 top-3, and beats the lookup table by +0.299. The null row is the
+weakest number here --- see the text for the 1{,}000-shuffle re-estimate.}
+\label{tab:controls}
+\end{table}
+
+Geometry beats its permuted null by +0.531 top-3 at this seed count, and
+beats the lookup table by +0.299. The learning curve appears to be still
+climbing at 436 under this split --- but that claim does not survive the
+sequential split reported below, where the curve falls at the last step,
+so we withdraw it.
+
+\textbf{One row of that table has since been re-estimated.} The
+permuted-null arm averaged only five shuffles, which is too few for a
+permutation baseline, so it was re-run with 1{,}000 shuffles at the same
+split. That raises the null from 0.136 to 0.159 top-3, which narrows the
+geometry-minus-null gap from +0.531 to +0.509. Geometry under 1{,}000
+splits reads 0.419 / 0.668 / 0.769, against the 0.438 / 0.667 / 0.755
+shown above, so the two estimates agree to within about 0.02 at every $k$.
+We report both rather than silently mixing seed counts within one table,
+and we take +0.509 as the defensible gap.
+
+\section{Discussion}
+
+\textbf{Each task against its own null --- not against each other.} The
+tempting summary of this result is a single number: proposer top-3 minus
+certifier AUC. We do not report one, because the two quantities are not
+commensurable. Top-$k$ containment is a $\{0,1\}$ hit rate with a finite
+number of candidate cells; ROC AUC is a rank statistic over a threshold-free
+continuum. Neither the difference $0.668-0.519$ nor the ratio
+$0.668/0.519$ has an interpretation --- changing the candidate-set size from
+3 to 10 would move the first term while leaving the second untouched. An
+earlier draft of this paper reported such a ``gap'' as the headline finding
+and computed its shrinkage across splits ($+0.149 \to +0.022$). That
+arithmetic is withdrawn.
+
+The comparison is instead made within each task. As a proposer, geometry
+clears its matched permuted-label null by $+0.509$ top-3 under the random
+split (0.668 vs.\ 0.159). As a certifier, it clears its own null --- chance,
+AUC 0.5 --- by $0.019$, which is not distinguishable from no improvement
+($n = 574$). So the asymmetry is real but it is an asymmetry of \emph{which
+null the task clears}, not a distance between two scores on different
+rulers.
+
+The sequential protocol does not yet have its own permuted null: the
+sequential run measured the geometry arm and the in-order baselines but not
+a shuffled-label arm, so we report the sequential proposer score against the
+random-split null only as a directional observation and do not quote a
+sequential margin. Adding that arm is the first item in the experiment plan.
+
+Put in a common, decision-relevant currency: the proposer takes a 57-cell
+search and hands a human 3 candidates containing the correct one 54--67\% of
+the time (sequential to random), while the certifier, asked to answer the
+same question without a human in the loop, provides no usable signal at
+all. That is a statement about human decision leverage, and it is the claim
+we are prepared to defend.
+
+\textbf{The magnitude is split-dependent.} The proposer's top-3 falls from
+0.668 to 0.541 when evaluation becomes sequential --- about thirteen points
+--- which is the more realistic protocol, so the sequential figure is the
+conservative one and the random split is a labelled upper bound. What
+survives both splits is the ordering, not the size: geometry beats the
+lookup prior, the majority baseline and the length-only baseline at every
+fraction under both protocols, and the certifier stays at chance under both.
+
+The earlier framing, that a number previously filed as a failure (top-1
+0.447) becomes useful once the output is three candidates, still holds under
+both splits: top-3 exceeds top-1 by a factor of about 1.8 even sequentially,
+and a person choosing among three candidates has less work than a person
+searching 57 cells.
+
+\textbf{Supervision is doing the work.} 436 decisions is most of a corpus.
+The honest claim is ``geometry converts human decisions into leverage over
+the remaining ones,'' not ``geometry replaces them.'' The learning curve
+is the thing to read: at 58 decisions top-3 is 0.385, already 1.5{\times} the
+majority floor.
+
+\textbf{The mode axis is the constraint.} Scoring per axis at 436 decisions
+seen:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Axis} & \textbf{Classes} & \textbf{Top-1} & \textbf{Top-2} & \textbf{Lift over majority} \\
+\midrule
+Domain & 5 & 0.626 & 0.837 & 3.05$\times$ \\
+Mode & 14 & 0.460 & 0.678 & 1.97$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Per-axis proposer performance. The machine can carry the domain
+axis and cannot carry the mode axis.}
+\label{tab:axes}
+\end{table}
+
+The machine can carry the domain axis and cannot carry the mode axis ---
+0.837 top-2 over five domains against 0.678 over fourteen modes, and the
+gap survives normalising for class count. This is the same asymmetry E6/E7
+found and explained by population rather than by missing definition, now
+stated as a division of labour: \textbf{the machine proposes the domain,
+the person picks the mode.}
+
+\textbf{Limits.} One rater (Claude), and the same rater produced the
+replacement filing. Under ``is the machine right'' that is a confound.
+Under this framing it is the target --- the artifact exists to pre-sort for
+an arbiter --- but \emph{whose} policy it learned is untested, and a second
+rater is the experiment that would settle it.
+
+\textbf{What this does not show.} (1) Top-1 is not new --- 0.438
+essentially reproduces E5's 0.447 accuracy on the old labels. (2) It is
+not certification --- nothing here says an entry belongs in the proposed
+cell. E14--E18 stand untouched. (3) It predicts a policy, not a truth. (4)
+The rater was a language model, so this measures whether geometry can
+predict one model's filing policy, not ontology truth. A second,
+independent human rater is the experiment that would settle it.
+
+\subsection*{The split protocol, stated precisely}
+
+A learning-curve claim is only as good as its split, so we state ours
+exactly. At each fraction $f \in \{0.10, 0.25, 0.50, 0.75\}$ the 582
+entries are shuffled and cut into a training prefix of
+$\max(2, \lfloor f \cdot 582 \rfloor)$ decisions and the remaining
+untouched decisions as test. Centroids are built from \textbf{train only};
+test entries never contribute to a centroid. Each point is the mean over
+\textbf{five} random splits, and the reported $k$-seen values are those
+fractions (58, 145, 291, 436).
+
+Two properties of this protocol are weaknesses, and we name them rather
+than leave them to be found:
+
+\begin{itemize}
+\item \textbf{The split is random in the main result; a sequential split was
+  run in this revision.} A random split lets a test entry sit between
+  training entries rather than after them, which is not what a real user
+  experiences. We therefore ran the same protocol in file order --- first
+  $N$ decisions as training, every later decision as test --- and the
+  difference is large. Reporting the sequential results as the more
+  realistic estimate:
+
+  \begin{center}
+  \begin{tabular}{rrrrrrrr}
+  \toprule
+  \textbf{frac} & \textbf{train} & \textbf{test} & \textbf{top-1} & \textbf{top-3} & \textbf{top-5} & \textbf{prior-3} & \textbf{maj-3} \\
+  \midrule
+  0.10 & 58  & 524 & 0.195 & 0.345 & 0.422 & 0.250 & 0.218 \\
+  0.25 & 145 & 437 & 0.195 & 0.348 & 0.430 & 0.272 & 0.224 \\
+  0.50 & 291 & 291 & 0.323 & 0.577 & 0.677 & 0.309 & 0.230 \\
+  0.75 & 436 & 146 & 0.308 & 0.541 & 0.644 & 0.267 & 0.123 \\
+  \bottomrule
+  \end{tabular}
+  \end{center}
+
+  Against the random split at frac $0.75$ (top-3 $0.667$--$0.668$), the
+  sequential split gives $0.541$ --- the random split inflates top-3 by
+  roughly $+0.13$. Two further consequences follow. First, the learning
+  curve is \emph{not} monotone in sequence: it rises from $0.345$ to
+  $0.577$ and then \emph{falls} to $0.541$, so the earlier claim that
+  ``the curve is still climbing at 436'' does not hold under this split.
+  Second, at small $N$ the geometry arm ($0.345$, $0.348$) is barely
+  distinguishable from the old$\rightarrow$new lookup prior ($0.250$,
+  $0.272$), though it still comfortably beats majority ($0.218$, $0.224$).
+
+  Caveat on what this split is: \texttt{refiling\_gate0.tsv} carries a
+  sequence column but no timestamps, so we cannot confirm that the file
+  order is the rater's adjudication order rather than the corpus order.
+  This is a \emph{sequential} split and we do not claim it is
+  chronological. It bounds the random split's optimism; it does not
+  establish the true temporal curve.
+\item \textbf{The permutation null was re-run with 1{,}000 shuffles.} The
+original arm averaged five shuffles, which our own project notes elsewhere
+call too weak for a permutation baseline. Re-running the null with
+1{,}000 shuffles at the same split ($0.75$, 436 decisions seen) gives
+top-3 null $0.159$ against the published $0.136$. The five-shuffle
+figure was low by $0.023$; we have no interval for it, since the original
+script reported only the mean over five, so we cannot say whether the
+two differ significantly --- only that the better-estimated null is
+higher. Corrected numbers at 436 decisions: null top-1 $0.048$, top-3
+$0.159$, top-5 $0.265$; geometry top-1 $0.419$, top-3 $0.668$, top-5
+$0.769$. The geometry-minus-null gap is therefore $+0.371$, $+0.509$ and
+$+0.505$ rather than the $+0.576$ implied by the original five-shuffle
+null. We report the revised figures and the reduced gap. The conclusion is
+unchanged in direction --- geometry clears the permuted null by $+0.509$
+top-3, while the strongest baseline over that same null, the
+old$\rightarrow$new lookup prior, reaches only $+0.209$ (41\% as much) and
+the length-only baseline does not clear the null at all ($-0.123$) --- but
+the published null understated the noise, and we prefer to correct it
+ourselves than have a reviewer find it.
+\end{itemize}
+
+The revised null is stored in
+\texttt{research/e21\_permutation\_null\_1000.json}; the re-run script is
+\texttt{research/papers/e21\_perm\_null\_1000.py}, which imports the
+original \texttt{run\_e21.py} so both arms come from the same code path.
+
+Neither the remaining temporal-split gap nor any other weakness invalidates
+the direction of the result --- the geometry arm beats every baseline by a
+wide margin --- but they bound how much precision we claim.
+
+\section*{Reproducibility and provenance}
+
+The E21 numbers above (top-$k$ containment, the four baselines, the
+per-axis split) were regenerated from the surviving script and ground truth
+and are stored in \texttt{research/e21\_proposer\_results.json};
+\texttt{research/papers/parse\_e21.py} rebuilds that file and asserts the
+two headline figures.
+
+The certification figures quoted for context --- the 0.519 (COSINE) and
+0.536 (CONSTRAINT) AUCs on real misfilings --- come from the E15--E18
+re-run stored in \texttt{research/e15\_e18\_rerun.json}. Those four
+experiments had shipped only as printing scripts with no saved output; they
+have since been re-run from the surviving corpus and ground truth, and
+reproduced their originally reported values (COSINE 0.882 under random
+injection and 0.519 on real misfilings; CONSTRAINT 0.612 and 0.536). The
+E5 figure 0.447 and the E24 figure 0.712 remain \emph{not} independently
+reproducible: neither experiment has a saved result file in the working
+repository or the retired archive. They are quoted from the original
+reports and should be re-run before being relied on.
+
+\end{document}

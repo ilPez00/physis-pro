@@ -1,0 +1,133 @@
+{
+  "source": "e1518_out.txt",
+  "experiments": {
+    "E15": {
+      "COSINE": {
+        "random": 0.882,
+        "same_domain": 0.824,
+        "same_mode": 0.777,
+        "nearest": 0.506,
+        "drop": -0.376
+      },
+      "NAME-ONLY": {
+        "random": 0.866,
+        "same_domain": 0.822,
+        "same_mode": 0.753,
+        "nearest": 0.597,
+        "drop": -0.268
+      },
+      "CONSTRAINT": {
+        "random": 0.675,
+        "same_domain": 0.525,
+        "same_mode": 0.697,
+        "nearest": 0.612,
+        "drop": -0.063
+      },
+      "ANCHORVOC": {
+        "random": 0.654,
+        "same_domain": 0.646,
+        "same_mode": 0.631,
+        "nearest": 0.584,
+        "drop": -0.07
+      },
+      "ANCESTRY": {
+        "random": 0.627,
+        "same_domain": 0.615,
+        "same_mode": 0.609,
+        "nearest": 0.566,
+        "drop": -0.061
+      },
+      "real_misfilings_stage9": 0.41,
+      "bootstrap_nearest_vs_cosine": {
+        "NAME-ONLY": {
+          "diff": 0.091,
+          "lo": 0.034,
+          "hi": 0.153,
+          "significant": true
+        },
+        "CONSTRAINT": {
+          "diff": 0.106,
+          "lo": 0.029,
+          "hi": 0.183,
+          "significant": true
+        },
+        "ANCHORVOC": {
+          "diff": 0.078,
+          "lo": 0.007,
+          "hi": 0.151,
+          "significant": true
+        },
+        "ANCESTRY": {
+          "diff": 0.035,
+          "lo": -0.055,
+          "hi": 0.127,
+          "significant": false
+        }
+      }
+    },
+    "E16": {
+      "COSINE": {
+        "auc": 0.519,
+        "n": 574
+      },
+      "NAME-ONLY": {
+        "auc": 0.508,
+        "n": 574
+      },
+      "CONSTRAINT": {
+        "auc": 0.536,
+        "n": 574
+      },
+      "ANCHORVOC": {
+        "auc": 0.664,
+        "n": 574
+      },
+      "ANCESTRY": {
+        "auc": 0.534,
+        "n": 513
+      },
+      "base_rate": 0.8009999999999999
+    },
+    "E17": {
+      "nonblind_auc": 0.871,
+      "blind_auc": 0.664,
+      "test1": "PASS",
+      "test2": "PASS",
+      "test3": "FAIL"
+    },
+    "E18": {
+      "port_r": {
+        "COSINE": {
+          "r": 0.197,
+          "verdict": "DIVERGENT"
+        },
+        "CONSTRAINT": {
+          "r": 0.943,
+          "verdict": "faithful"
+        },
+        "ANCESTRY": {
+          "r": 0.976,
+          "verdict": "faithful"
+        }
+      },
+      "anchorvoc_controls": {
+        "COSINE (reference)": 0.519,
+        "ANCHORVOC (E16)": 0.664,
+        "normalised by entry length": 0.667,
+        "CONTROL random cell's anchor": 0.565,
+        "CONTROL entry length only": 0.619,
+        "CONTROL anchor size only": 0.495
+      },
+      "second_ground_truth": {
+        "ANCHORVOC": 0.662,
+        "COSINE": 0.739
+      },
+      "decisive_normalised_vs_length": {
+        "diff": 0.048,
+        "lo": -0.019,
+        "hi": 0.116,
+        "verdict": "NOT"
+      }
+    }
+  }
+}

@@ -1,0 +1,145 @@
+###### E15 ######
+E15 — batched realistic-injection battery
+
+  658 entries · 57 cells · 572 anchored in WordNet
+
+  AUC by scorer x injection policy (higher = better detection)
+
+  scorer              random  same-domain    same-mode      nearest    drop
+  COSINE               0.882        0.824        0.777        0.506  -0.376
+  NAME-ONLY            0.866        0.822        0.753        0.597  -0.268
+  CONSTRAINT           0.675        0.525        0.697        0.612  -0.063
+  ANCHORVOC            0.654        0.646        0.631        0.584  -0.070
+  ANCESTRY             0.627        0.615        0.609        0.566  -0.061
+
+  Stage 9, the corpus's own real misfilings: 0.410
+
+  ── bootstrap over entries, `nearest` injection, 2000 resamples ──
+
+  comparison                            diff              95% CI
+  NAME-ONLY - COSINE                  +0.091   [+0.034, +0.153]  significant
+  CONSTRAINT - COSINE                 +0.106   [+0.029, +0.183]  significant
+  ANCHORVOC - COSINE                  +0.078   [+0.007, +0.151]  significant
+  ANCESTRY - COSINE                   +0.035   [-0.055, +0.127]
+
+  ── the question E14 opened ──
+  cosine under realistic injection : 0.506
+  best non-geometric scorer        : 0.612  (CONSTRAINT)
+  -> a structural scorer SURVIVES where geometry does not. Stage 12's
+     refutations were an artifact of the injection policy and the
+     certification question reopens.
+EXIT_15=0
+###### E16 ######
+E15 — batched realistic-injection battery
+
+  658 entries · 57 cells · 572 anchored in WordNet
+
+  ground truth: 661 re-filed, 585 blind, 582 matched to an embedded entry
+  positives (blind rater MOVED it) 466  negatives 116   base rate 80.1%
+
+  scorer            AUC      n   pos   vs COSINE (95% CI)
+  COSINE          0.519    574   459   --
+  NAME-ONLY       0.508    574   459   -0.010 [-0.067, +0.042]
+  CONSTRAINT      0.536    574   459   +0.017 [-0.066, +0.097]
+  ANCHORVOC       0.664    574   459   +0.145 [+0.072, +0.219]  significant
+  ANCESTRY        0.534    513   420   +0.025 [-0.069, +0.121]
+
+  For reference, the SYNTHETIC results (E14/E15):
+    random injection   COSINE 0.882   CONSTRAINT 0.675
+    nearest injection  COSINE 0.506   CONSTRAINT 0.612
+    Stage 9 headline on real misfilings:  0.410
+EXIT_16=0
+###### E17 ######
+TEST 3 — the 76 entries where blindness FAILED
+══════════════════════════════════════════════════════════════════════════════
+
+  The file flags entries whose hints narrate their own old cell. The rater's
+  procedure was identical there; only blindness differs. A scorer detecting real
+  misfiling should behave similarly on both; one tracking the rater's reading of
+  the hints should not.
+
+  n = 56 non-blind entries, 34 moved
+  ANCHORVOC  AUC 0.871   (blind subset: 0.664)
+  COSINE     AUC 0.467   (blind subset: 0.519)
+
+══════════════════════════════════════════════════════════════════════════════
+VERDICT
+══════════════════════════════════════════════════════════════════════════════
+
+  Test 1  rater's rule != ANCHORVOC      : PASS   (new cell at median rank 17 of 70, random 35)
+  Test 2  survives held-out hints        : PASS   (0.598, still significant)
+  Test 3  behaves the same without blind : FAIL   (0.871 vs 0.664)
+
+  The tests DISAGREE, and the honest reading is partial.
+
+  Test 1 is reassuring: the rater's chosen cell sits at median rank 17 of 70,
+  not 1-3, so the rater is not running ANCHORVOC. But 33% top-5 against a 7.9%
+  random baseline says the two rules overlap more than chance -- shared
+  information, not a shared procedure.
+
+  Test 2 is reassuring: half the hint vocabulary still beats cosine.
+
+  Test 3 fails the criterion this script pre-registered. On the 56 entries whose
+  hints narrate their own cell, ANCHORVOC RISES to 0.871 while cosine falls.
+  A detector of real misfiling should not care whether the hint text leaks the
+  cell; one that keys on hint-vs-anchor wording should, and does.
+
+  NET: ANCHORVOC is not circular in the strong sense -- it does not reproduce
+  the rater's decision. It is hint-dependent in a way a filing-independent
+  signal would not be. The 0.664 is most likely a real but PARTLY
+  vocabulary-mediated effect: an entry sharing no words with its cell's anchor
+  really is more likely misfiled, and that is also part of what the rater used.
+  Treat it as a lead worth an independent test, not as a validated certifier.
+
+  The independent test that would settle it: adjudication by a rater who never
+  sees the anchor hints, only the axis definitions. That removes the shared
+  input entirely. n=56 is also too small for Test 3 to be more than a flag.
+
+EXIT_17=0
+###### E18 ######
+  553 entries in both corpus_fit.tsv and the embedded corpus
+  COSINE       Pearson r = +0.197   n=553  DIVERGENT
+  CONSTRAINT   Pearson r = +0.943   n=553  faithful
+  ANCESTRY     Pearson r = +0.976   n=553  faithful
+
+  A high r means the Python arm measures what Stage 12 measured. A low
+  one means E15/E16's numbers are about a different scorer than the
+  refutations they are being compared against.
+
+══════════════════════════════════════════════════════════════════════════
+2. ANCHORVOC CONTROLS — real vocabulary effect, or a text-length artifact?
+══════════════════════════════════════════════════════════════════════════
+
+  arm                                    AUC   vs COSINE (95% CI)
+  COSINE (reference)                   0.519   --
+  ANCHORVOC (E16)                      0.664   +0.145 [+0.072, +0.219]  sig
+    normalised by entry length         0.667   +0.148 [+0.074, +0.223]  sig
+    CONTROL random cell's anchor       0.565   +0.046 [-0.022, +0.111]
+    CONTROL entry length only          0.619   +0.100 [+0.027, +0.179]  sig
+    CONTROL anchor size only           0.495   -0.024 [-0.109, +0.060]
+
+  DECISIVE: normalised ANCHORVOC vs length-only  +0.048 [-0.019, +0.116]  NOT significant
+  (entry length alone reaches 0.619 of ANCHORVOC's 0.664, so this is the
+   comparison that says whether any vocabulary effect survives at all)
+
+  If the random-anchor control also beats cosine, the effect is about
+  entry text rather than about the CELL's vocabulary, and 0.664 is an
+  artifact. If only the own-anchor arm wins, the effect is real.
+
+══════════════════════════════════════════════════════════════════════════
+3. SECOND GROUND TRUTH — the audit of a filing the rater did not produce
+══════════════════════════════════════════════════════════════════════════
+
+  60 adjudicated, 60 matched to an embedded entry
+
+  positives = NO only  (26 of 60)
+    ANCHORVOC  AUC 0.544
+    COSINE     AUC 0.691   (n=43, cells are sparse here)
+
+  positives = NO + MARGINAL  (41 of 60)
+    ANCHORVOC  AUC 0.662
+    COSINE     AUC 0.739   (n=43, cells are sparse here)
+
+  n is small and the cells are thinly populated, so this is a
+  consistency check, not a second confirmation.
+EXIT_18=0
