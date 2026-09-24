@@ -125,6 +125,18 @@ def main():
         print(f"    done in {round(time.time()-t1,1)}s  "
               f"chi peaks at nemesis={peak['nemesis']} (chi={peak['chi_excl_mean']:.1f}), "
               f"largest_mean there {peak['largest_mean']:.3f}", flush=True)
+        # Write partial progress after EVERY node count. The first version
+        # wrote only at the very end, so each kill (and this host kills long
+        # runs) discarded the entire sweep. Diagnostics come later, once all
+        # points exist; a partial artifact still carries the raw curves.
+        with open(OUT, "w") as fh:
+            json.dump({"nemesis_grid": NEMESIS, "curves": curves,
+                       "diagnostics": None,
+                       "partial": [c["nodes"] for c in curves],
+                       "binary": os.path.relpath(BIN, REPO),
+                       "reproduce": "python3 research/papers/p10_fss.py"}, fh,
+                      indent=2)
+
 
     # ---- scaling diagnostics -------------------------------------------
     diag = {}

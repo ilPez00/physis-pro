@@ -69,6 +69,23 @@ comparison toward the power law.
 
 **Verdict: instrument_sensitive = true, instrument_specific = false.**
 
+**Process failure, recorded (same class as P1's).** Two runs of this script
+raced one output path. The post-fix run (300 clusters per supercritical sample)
+finished first and wrote its artifact; the pre-fix run (6000 clusters, slow)
+finished later and overwrote it. The surviving artifact is therefore the
+better-powered 6000-cluster run, and it is the one quoted above — but that was
+luck of ordering, not design. The supercritical control also differs between
+the two configurations: **0/12** at 6000 clusters versus **1/12** at 300. Both
+count as "quiet" under the pre-registered rule (< 0.5), so the verdict is
+unchanged, but the number is configuration-dependent and should be reported
+with its sample size.
+
+Two further fixes in the same class: the per-control header printed the global
+default cluster count rather than the spec's actual value (so a 300-cluster
+sample was logged as "6000 clusters each"), and the FSS sweep wrote its
+artifact only at the very end, so every kill discarded the whole run. Both are
+fixed; the FSS now writes partial output after each node count.
+
 ---
 
 ## What this does to Paper 10

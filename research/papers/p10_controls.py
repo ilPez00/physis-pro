@@ -152,7 +152,8 @@ def main():
 
     results, t0 = [], time.time()
     for name, gen, kw, expect_alpha, why in specs:
-        print(f"=== {name} ({a.seeds} seeds, {n_cl} clusters each) ===", flush=True)
+        print(f"=== {name} ({a.seeds} seeds, "
+              f"{kw.get('n_clusters', n_cl)} clusters each) ===", flush=True)
         r = run_control(name, gen, a.seeds, **kw)
         r["expected_alpha"] = expect_alpha
         r["expectation"] = why
