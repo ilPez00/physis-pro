@@ -189,7 +189,7 @@
           }
         }
       ],
-      "seconds": 5.1
+      "seconds": 5.6
     },
     {
       "nodes": 300,
@@ -367,7 +367,7 @@
           }
         }
       ],
-      "seconds": 43.7
+      "seconds": 46.1
     },
     {
       "nodes": 1000,
@@ -544,7 +544,7 @@
           }
         }
       ],
-      "seconds": 460.7
+      "seconds": 498.5
     },
     {
       "nodes": 3000,
@@ -720,7 +720,7 @@
           }
         }
       ],
-      "seconds": 1214.5
+      "seconds": 1198.2
     }
   ],
   "diagnostics": {
