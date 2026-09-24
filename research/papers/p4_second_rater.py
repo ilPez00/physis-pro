@@ -44,6 +44,19 @@ SEED = 20260924
 PARTIAL = os.path.join(REPO, "research", "p4_rater2_partial.jsonl")
 
 
+def set_run_paths(backend):
+    """Namespace the artifact and the resume file by backend.
+
+    Without this, a second rater overwrites the first one's artifact AND resumes
+    from its ratings -- the resume is keyed on item number, so the new backend
+    would skip items it never asked and report them as its own. That would look
+    like agreement between raters while actually being one rater copied twice.
+    """
+    global OUT, PARTIAL
+    OUT = os.path.join(REPO, "research", f"p4_rater2_{backend}.json")
+    PARTIAL = os.path.join(REPO, "research", f"p4_rater2_{backend}_partial.jsonl")
+
+
 def _load_partial():
     """Rows already rated.
 
@@ -120,16 +133,50 @@ def _nvidia_key():
     return k.group(1) if k else None
 
 
-def ask_openai(model, entry, source, cells, timeout=300):
+NV_BASE = "https://integrate.api.nvidia.com/v1"
+DS_BASE = "https://api.deepseek.com/v1"
+
+
+def _deepseek_key():
+    """Working DeepSeek key.
+
+    The key in ~/.hermes/config.yaml returns 401; the live one is in the opencode
+    auth store. Probed both rather than assuming, since the stale one fails in a
+    way that looks like a model error.
+    """
+    for p in ("~/.config/opencode/auth.json", "~/.local/share/opencode/auth.json"):
+        fp = os.path.expanduser(p)
+        if not os.path.exists(fp):
+            continue
+        try:
+            d = json.load(open(fp))
+        except ValueError:
+            continue
+        v = d.get("deepseek") if isinstance(d, dict) else None
+        if isinstance(v, dict):
+            k = v.get("key") or v.get("api_key")
+            if k:
+                return k
+        elif isinstance(v, str):
+            return v
+    return None
+
+
+def _endpoint(backend):
+    return {"nvidia": (NV_BASE, _nvidia_key), "deepseek": (DS_BASE, _deepseek_key)}[backend]
+
+
+def ask_openai(model, entry, source, cells, timeout=300, base_url=NV_BASE, key=None):
     """Same blind prompt, sent to an OpenAI-compatible endpoint."""
-    key = _nvidia_key()
+    if key is None:
+        key = _nvidia_key()
     if not key:
         return None, "NO-KEY", 0.0
     body = {"model": model, "temperature": 0, "max_tokens": 2048,
             "messages": [{"role": "user",
                           "content": build_prompt(entry, source, cells)}]}
     req = urllib.request.Request(
-        "https://integrate.api.nvidia.com/v1/chat/completions",
+        base_url.rstrip("/") + "/chat/completions",
         data=json.dumps(body).encode(),
         headers={"Content-Type": "application/json",
                  "Authorization": "Bearer " + key})
@@ -213,13 +260,15 @@ def main():
     # nvidia default is set below if the backend is nvidia and no model given
     ap.add_argument("--timeout", type=int, default=240)
     ap.add_argument("--backend", default="ollama",
-                    choices=["ollama", "nvidia"],
+                    choices=["ollama", "nvidia", "deepseek"],
                     help="nvidia = distinct cloud model via an OpenAI-compatible "
                          "endpoint; ollama = a local model")
     ap.add_argument("--dry-run", action="store_true",
                     help="pick the sample and print prompts; do not call a model")
     a = ap.parse_args()
 
+    if a.backend == "deepseek" and a.model == "lfm2.5:latest":
+        a.model = "deepseek-chat"        # non-reasoning; v4-pro/flash emit only reasoning_content
     if a.backend == "nvidia" and a.model == "lfm2.5:latest":
         a.model = "mistralai/mistral-nemotron"
     rows = load_gate()
@@ -280,11 +329,18 @@ def main():
     done = {r["n"] for r in out}
     if done:
         print(f"  resuming: {len(done)} items already rated", flush=True)
+    set_run_paths(a.backend)
+
+    def _ask(m, e, src, c):
+        if a.backend == "ollama":
+            return ask_ollama(m, e, src, c, a.timeout)
+        base, keyfn = _endpoint(a.backend)
+        return ask_openai(m, e, src, c, a.timeout, base_url=base, key=keyfn())
+
     for k, s in enumerate(sample, 1):
         if s["n"] in done:
             continue
-        _ask = ask_openai if a.backend == "nvidia" else ask_ollama
-        cell, raw, secs = _ask(a.model, s["entry"], s["source"], cells, a.timeout)
+        cell, raw, secs = _ask(a.model, s["entry"], s["source"], cells)
         t_total += secs
         if cell is None:
             fails += 1

@@ -1,20 +1,18 @@
-# P4 — second rater (model-based, secondary evidence)
+# P4 — independent raters (model-based, secondary evidence)
 
-STATUS: preliminary. Harness verified; result recorded with two caveats that
-bound what it can be used for.
+STATUS: complete for the model-rater arm. Human rater still unavailable.
 
 ## HYPOTHESIS
 
-If the 57-cell filing is a property of the entries, two independent raters
-should agree on them at a rate well above chance. If it is a property of the
-rater's policy, agreement will be low — and then P4's geometry result is a
-result about one policy, not about the cells.
+If the 57-cell filing is a property of the entries, independent raters should
+agree well above chance. If it is a property of the rater's policy, agreement
+will be low — and then P4's geometry result is a result about one policy, not
+about the cells.
 
 ## KILL TEST
 
 Low inter-rater agreement kills "geometry captures something shared across
-raters". This is that test, run with a second *model* (the human rater is
-unavailable).
+raters". This is that test.
 
 ## NULL
 
@@ -24,75 +22,91 @@ pe = sum_c p1(c) * p2(c).
 ## DATA
 
 `research/perspective-discovery/refiling_gate0.tsv`, 661 entries, 57 cells.
-Sample: 57 entries, stratified one per rater-1 cell, seed 20260924.
 Rater 1 = the existing Claude filing (`new_cell`).
-Rater 2 = `mistralai/mistral-nemotron` via an OpenAI-compatible endpoint,
-temperature 0, **blind**: the prompt builder takes only (entry, source, cells)
-and has no parameter for either label. Verified on the real payload — 228
-checks, 0 leaks.
+
+| rater 2 | model | n | sample |
+|---|---|---|---|
+| A | `mistralai/mistral-nemotron` | 39/57 | stratified, 1 per cell |
+| B | `deepseek-chat` | **661/661** | **full, natural distribution** |
+
+Both **blind**: the prompt builder takes only (entry, source, cells) and has no
+parameter for either label, verified on the real payload (228 checks, 0 leaks).
 
 ## RESULT
 
-39 of 57 items rated (18 transport failures, spread across the whole item range,
-not a rate-limited tail).
+| | rater A (small) | rater B (frontier) |
+|---|---|---|
+| n | 39 | **661** |
+| parse rate | 39/57 (18 transport failures) | **661/661, 0 failures** |
+| observed agreement | 0.128 | **0.2330** |
+| chance agreement pe | 0.0178 | 0.0358 |
+| Cohen's kappa | 0.112 ("slight") | **0.2045 ("fair")** |
+| 95% CI on agreement | — | [0.202, 0.267] |
 
-    observed agreement   po = 5/39 = 0.128
-    chance agreement     pe = 0.0178
-    Cohen's kappa        = 0.112          ("slight")
-
-Rater-2 behaviour (the check that separates "task is ambiguous" from "rater 2 is
-broken"):
+Rater-B behaviour (the check separating "task is ambiguous" from "rater broken"):
 
 | | distinct cells | entropy | most used |
 |---|---|---|---|
-| rater 1 | 39 of 39 | 3.66 nats | one item each (by construction) |
-| rater 2 | 19 of 39 | 2.65 nats | STUDY/LEARN 9, BOND/MAINTAIN 5, BOND/GUIDE 3 |
+| rater 1 | 57 of 57 | 3.51 | CONSTRUCT/CREATE 69, FABRICATE/WORK 61, STUDY/WORK 51 |
+| rater 2 | 43 of 57 | 3.07 | STUDY/LEARN 103, BOND/MAINTAIN 69, CONSTRUCT/CREATE 52 |
 
-Rater 2 is **concentrated, not uniform** — it engages the task with strong
-preferences rather than answering at random. So the low agreement is not simply
-a broken rater.
+Rater 2 is **concentrated, not uniform**: it uses 43 of 57 cells and puts 16% of
+all items on one cell. It restricts itself to a coarser vocabulary than rater 1
+— that is a strategy, not noise. Agreement is higher where rater 1 used a common
+cell (0.261) than a rare one (0.196), consistent with rater 2 favouring default
+cells.
 
 ## VERDICT
 
-**Two models agree on about one filing in eight.** The filing is substantially
-rater-specific, so the ceiling for "geometry captures the cell" is low. This
-weakens any reading of P4 as discovering a rater-independent structure, and
-supports the paper's existing framing: the target is a *rater-assigned cell*, not
-a correct one.
+**Two frontier-class models agree on 23.3% of blind filings — about one in four**
+(kappa 0.205, "fair"; ~6.5x chance). Three filings in four differ.
 
-## LIMITATIONS (both must travel with the number)
+This **settles the capability confound in the right direction**: the smaller
+model agreed on 12.8% (kappa 0.112), the frontier model on 23.3% (kappa 0.205).
+Agreement roughly doubles with rater capability, so the low figure from rater A
+was partly a capability artifact, as flagged.
 
-1. **Capability confound.** Rater 1 is a frontier model; rater 2 is much
-   smaller. Part of the disagreement may be rater-2 weakness rather than task
-   ambiguity. A fair ceiling test needs a rater of comparable capability — a
-   second frontier model, or the human rater. Two models agreeing is agreement
-   between two policies; it is not a human ceiling.
-2. **The stratified sample inflates kappa.** Drawing one item per rater-1 cell
-   forces rater 1 to be uniform, which drives pe down to ~1/57, the minimum
-   possible, and therefore makes kappa look *better* than it would on a natural
-   sample. kappa = 0.112 is an upper-ish bound, not a neutral estimate.
-3. 18 of 57 items failed on transport and are unrated. Failures are spread
-   across the item range, so the rated subset is not obviously biased — but the
-   arms are unequal, and a rerun should retry them (the harness now does).
+**But it does not rescue the shared-structure reading.** A ceiling of ~23%
+means the filing is substantially rater-specific: roughly three-quarters of the
+variance in a filing is rater, not entry. Any geometry accuracy above this
+ceiling is capturing a *policy*, and the paper must keep saying
+"rater-assigned cell", never "correct cell".
+
+## LIMITATIONS
+
+1. **This is a model ceiling, not a human one.** Two models agreeing is
+   agreement between two policies. It bounds what can be claimed about raters
+   in general only loosely — the human rater is still the missing measurement.
+2. **Rater 2 restricts its own vocabulary** (43/57 cells, 16% on STUDY/LEARN), so
+   part of the disagreement is a coarseness mismatch rather than disagreement
+   about the entries. A rater that used the full grid might agree more.
+3. Rater A's stratified sample forced rater 1 to be uniform, depressing pe to
+   ~1/57 and *inflating* its kappa. Rater B used the full natural sample, so
+   0.2045 is a neutral estimate — this is why both are reported.
 
 ## REPRODUCTION
 
-    python3 research/papers/p4_second_rater.py --n 60 --backend nvidia
+    python3 research/papers/p4_second_rater.py --n 100000 --backend deepseek --timeout 120
 
-Artifact: `research/p4_rater2.json`.
+Artifacts: `research/p4_rater2_deepseek.json` (n=661),
+`research/p4_rater2_nvidia.json` (n=39).
 
 ## ARTIFACT-INTEGRITY NOTES
 
-Two defects found by reading this artifact rather than its summary:
+Defects found by reading the artifacts rather than their summaries:
 
-- `rater2_raw` was stored as `raw[:80]`. Labels were parsed from the full text,
+- `rater2_raw` was stored as `raw[:80]`. Labels were parsed from the full text
   so they are sound, but the evidence for them was destroyed — a row whose
   stored raw contained no cell name still carried a cell, which is impossible if
   the stored raw is what was parsed. Now stores `raw[:2000]` plus `raw_len`.
-  **Rows from the run above predate this fix, so their raws are truncated and
-  must not be treated as auditable evidence.**
+  Rater A's rows predate this fix; **rater B's do not**, so only rater B's
+  labels are auditable.
 - `_load_partial` counted `REQUEST-FAILED` rows as done, so a resume silently
-  skipped items that were never asked. Now excluded, so a rerun retries them.
+  skipped items never asked. Now excluded.
+- The artifact and partial paths were shared across backends. The resume is
+  keyed on item number, so a second rater would have **skipped items the first
+  one rated and reported them as its own** — agreement between raters that is
+  really one rater copied twice. Both paths are now namespaced by backend.
 
 ## GIT COMMIT
 
