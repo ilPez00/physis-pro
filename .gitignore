@@ -53,3 +53,8 @@ target-*/
 # machine-generated run logs
 logs/
 .aider*
+
+# LaTeX build byproducts (source .tex is committed; these are regenerated)
+research/papers/*.aux
+research/papers/*.log
+research/papers/*.out
