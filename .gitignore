@@ -58,3 +58,9 @@ logs/
 research/papers/*.aux
 research/papers/*.log
 research/papers/*.out
+
+# P2 resumable embedding cache: regenerable scratch, not a result. Kept out of
+# history deliberately -- the artifact of record is the corpus shard, not the
+# intermediate vectors.
+research/trajectories_external/emb_chunks_nomic/
+research/p4_rater2_partial.jsonl
