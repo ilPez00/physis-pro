@@ -8,7 +8,7 @@
     "same claim ID. The validator fails loudly rather than repairing silently.",
     "Status vocabulary: established | suggestive | null | falsified | exploratory | superseded"
   ],
-  "registry_version": "1.0.0",
+  "registry_version": "2.0.0",
   "generated": "2026-09-24",
   "repo": "/home/gio/dev/physis-pro",
   "git_branch_at_write": "agent/P-037-substrate",
@@ -30,7 +30,12 @@
       "n": 75933,
       "uncertainty": "exact count, not estimated",
       "status": "established",
-      "reproduce": "python3 research/papers/e74_replication.py"
+      "reproduce": "python3 research/papers/e74_replication.py",
+      "null": "not applicable - exact count, no test",
+      "threshold": "exact count of labelled rows",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "7d61c491c5f66aad"
     },
     {
       "claim_id": "CORPUS-002",
@@ -50,7 +55,12 @@
       "uncertainty": "exact count",
       "status": "established",
       "reproduce": "python3 research/papers/e74_replication.py",
-      "note": "Previously reported in both papers as median 137; that was wrong. Corrected to 101 on 2026-09-24."
+      "note": "Previously reported in both papers as median 137; that was wrong. Corrected to 101 on 2026-09-24.",
+      "null": "not applicable - exact count, no test",
+      "threshold": "exact session count and per-session size statistics",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "d30c710f92d7ec48"
     },
     {
       "claim_id": "XFER-001",
@@ -68,7 +78,12 @@
       "n": 12,
       "uncertainty": "session-level bootstrap, 95% CI",
       "status": "established",
-      "reproduce": "python3 research/papers/check_bootstrap_unit.py"
+      "reproduce": "python3 research/papers/check_bootstrap_unit.py",
+      "null": "chance, AUC = 0.5",
+      "threshold": "session-level 95% bootstrap CI lies entirely above 0.5",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "1a2913ae5ad6b504"
     },
     {
       "claim_id": "XFER-002",
@@ -87,7 +102,12 @@
       "n": 12,
       "uncertainty": "action-level bootstrap, 95% CI (reported only to demonstrate the error)",
       "status": "established",
-      "reproduce": "python3 research/papers/check_bootstrap_unit.py"
+      "reproduce": "python3 research/papers/check_bootstrap_unit.py",
+      "null": "chance, AUC = 0.5",
+      "threshold": "action-level 95% bootstrap CI lies entirely above 0.5",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "f744ab23d45d4cc7"
     },
     {
       "claim_id": "XFER-003",
@@ -107,7 +127,12 @@
       "uncertainty": "exact enumeration over the stored intervals, no resampling",
       "status": "established",
       "reproduce": "python3 research/results_registry/validate.py",
-      "note": "THIS IS THE CLAIM THAT WAS PREVIOUSLY INCONSISTENT ACROSS PAPERS. paper9_dataset.tex asserted 'four chance-level comparisons turned apparently significant', which double-counted: only 3 gained significance and 1 lost it, and of the 3 that gained, 2 are significantly BELOW chance, not above. paper1 said 2 (action) vs 1 (session) above chance, which is correct. Fixed 2026-09-24."
+      "note": "THIS IS THE CLAIM THAT WAS PREVIOUSLY INCONSISTENT ACROSS PAPERS. paper9_dataset.tex asserted 'four chance-level comparisons turned apparently significant', which double-counted: only 3 gained significance and 1 lost it, and of the 3 that gained, 2 are significantly BELOW chance, not above. paper1 said 2 (action) vs 1 (session) above chance, which is correct. Fixed 2026-09-24.",
+      "null": "no change of significance verdict between the two units",
+      "threshold": "exact enumeration of the 12 stored interval pairs",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "4a7a551018d959fb"
     },
     {
       "claim_id": "XFER-004",
@@ -125,7 +150,12 @@
       "n": 12,
       "uncertainty": "95% bootstrap CI",
       "status": "established",
-      "reproduce": "python3 research/results_registry/validate.py"
+      "reproduce": "python3 research/results_registry/validate.py",
+      "null": "chance, AUC = 0.5",
+      "threshold": "95% CI lies entirely below 0.5",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "51ab8efc963fa42d"
     },
     {
       "claim_id": "PROP-001",
@@ -148,7 +178,12 @@
         "result_file": "research/e21_sequential_split.json",
         "json_path": "results.0.75.top3",
         "value": 0.541
-      }
+      },
+      "null": "matched permuted-label null, 1000 label shuffles",
+      "threshold": "top-k containment exceeds the matched null's top-k",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "877927ef88bcfea0"
     },
     {
       "claim_id": "PROP-002",
@@ -166,7 +201,12 @@
       "n": null,
       "uncertainty": "bootstrap CI in the stored file",
       "status": "established",
-      "reproduce": "python3 research/papers/parse_e1518.py"
+      "reproduce": "python3 research/papers/parse_e1518.py",
+      "null": "chance, AUC = 0.5",
+      "threshold": "certification AUC CI excludes 0.5 (it does not - reported as null)",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "6ec2523c6af4d80b"
     },
     {
       "claim_id": "PROP-003",
@@ -185,7 +225,13 @@
       "uncertainty": "n/a",
       "status": "superseded",
       "reproduce": null,
-      "note": "Removed from paper4 on 2026-09-24. Both tasks are now reported against their OWN matched nulls: the proposer against the permuted-label null, the judge against chance (0.5). The qualitative claim (one task discriminates, the other does not) survives; the numerical gap does not."
+      "note": "Removed from paper4 on 2026-09-24. Both tasks are now reported against their OWN matched nulls: the proposer against the permuted-label null, the judge against chance (0.5). The qualitative claim (one task discriminates, the other does not) survives; the numerical gap does not.",
+      "null": "none - the operation is undefined, this is a retraction",
+      "threshold": "not applicable",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "superseded_by": "PROP-001",
+      "criterion_history": [],
+      "criterion_hash": "17d0abb496328ed6"
     },
     {
       "claim_id": "PROP-004",
@@ -204,7 +250,12 @@
       "uncertainty": "single deterministic split per fraction; no split-level CI yet",
       "status": "established",
       "reproduce": "python3 research/papers/e21_sequential_split.py",
-      "note": "refiling_gate0.tsv has a sequence column but no timestamps; this is a SEQUENTIAL split, not a demonstrated chronological one."
+      "note": "refiling_gate0.tsv has a sequence column but no timestamps; this is a SEQUENTIAL split, not a demonstrated chronological one.",
+      "null": "random train/test split, treated as the optimistic floor",
+      "threshold": "sequential top-3 below random-split top-3",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "ba7dfb9f6cef196b"
     },
     {
       "claim_id": "GRAN-001",
@@ -223,7 +274,12 @@
       "uncertainty": "NOT YET session-level - open blocker",
       "status": "suggestive",
       "reproduce": "python3 research/papers/dataset_baselines.py",
-      "note": "Kill test currently reported as point AUCs. Phase 4 of the audit requires session-level CIs around these differences."
+      "note": "Kill test currently reported as point AUCs. Phase 4 of the audit requires session-level CIs around these differences.",
+      "null": "coarse tool/prefix label taxonomies (133 and 131 classes)",
+      "threshold": "fine-grained kind AUC exceeds coarse-label AUC",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "efae3f4a8b43ea13"
     },
     {
       "claim_id": "EMP-001",
@@ -241,7 +297,12 @@
       "n": 144,
       "uncertainty": "seed-to-seed variance reported per setting",
       "status": "falsified",
-      "reproduce": "cargo run --release --features empedocles --example empedocles_multiseed && python3 research/papers/fit_empedocles.py"
+      "reproduce": "cargo run --release --features empedocles --example empedocles_multiseed && python3 research/papers/fit_empedocles.py",
+      "null": "lognormal, against the claim's own power law",
+      "threshold": "power law beats lognormal on Vuong (it never does)",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "8b2dcb199bbdd637"
     },
     {
       "claim_id": "XFER-005",
@@ -260,7 +321,12 @@
       "uncertainty": "bootstrap p-values, 10000 session-level resamples",
       "status": "established",
       "reproduce": "python3 research/papers/e1_multiplicity.py",
-      "note": "This overturns the earlier headline that 1 of 12 pairs was established. That claim (XFER-001) counted raw CI exclusion without multiplicity control and is now reporting-only."
+      "note": "This overturns the earlier headline that 1 of 12 pairs was established. That claim (XFER-001) counted raw CI exclusion without multiplicity control and is now reporting-only.",
+      "null": "chance, AUC = 0.5, family of 12 directional tests",
+      "threshold": "Holm step-down at alpha = 0.05",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "70401eca68f874cf"
     },
     {
       "claim_id": "XFER-006",
@@ -279,7 +345,13 @@
       "uncertainty": "session bootstrap CI; interval valid, point estimate contaminated for the local arms",
       "status": "superseded",
       "reproduce": "python3 research/papers/e74_replication.py",
-      "note": "The corrected paired experiment (held-out train/test, arms A/B/C/D) is specified in research/EXPERIMENT_PLAN.md item 2 and is NOT yet run."
+      "note": "The corrected paired experiment (held-out train/test, arms A/B/C/D) is specified in research/EXPERIMENT_PLAN.md item 2 and is NOT yet run.",
+      "null": "none - claim withdrawn for train/test leakage",
+      "threshold": "not applicable, retained as an error record",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "superseded_by": "XFER-007",
+      "criterion_history": [],
+      "criterion_hash": "7570efd01d6c8aa1"
     },
     {
       "claim_id": "XFER-007",
@@ -298,7 +370,13 @@
       "uncertainty": "paired session-level bootstrap, 2000 resamples, on the difference",
       "status": "established",
       "reproduce": "python3 research/papers/e1_coldstart_paired.py",
-      "note": "Supersedes the withdrawn curve in XFER-006. Arm A (local-only) is undefined at N=0 and is recorded as null rather than substituted, so its diff is not computed there."
+      "note": "Supersedes the withdrawn curve in XFER-006. Arm A (local-only) is undefined at N=0 and is recorded as null rather than substituted, so its diff is not computed there.",
+      "null": "the borrowed-only arm (opencode prior, no target data)",
+      "threshold": "paired session-level bootstrap CI on local-minus-borrowed excludes 0",
+      "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+      "criterion_history": [],
+      "criterion_hash": "02e765f5c79a1499"
     }
-  ]
+  ],
+  "criteria_completed": "2026-09-24"
 }

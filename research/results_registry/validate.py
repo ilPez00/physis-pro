@@ -181,6 +181,48 @@ def cross_paper_checks(claims):
             ok("XFER-005: paper1 states the no-positive-transfer result")
         else:
             fail("XFER-005: paper1 does not state the no-positive-transfer result")
+
+    # ---- XFER-008: the Holm arithmetic itself (v2). The v1 manuscript quoted
+    # rank 3's denominator for a rank-5 hypothesis; this checks the corrected
+    # number, the generated sentence, and that the wrong form never returns.
+    v2 = load("research/p1_multiplicity_v2.json")
+    if v2:
+        expect_holm = {"claude-code->codex", "codex->opencode", "codex->cline"}
+        got_holm = set(v2["holm_survivors"])
+        if got_holm != expect_holm:
+            fail(f"XFER-008: Holm rejection set changed: {got_holm} != {expect_holm}")
+        else:
+            ok(f"XFER-008: Holm rejection set matches the frozen expectation")
+        v2by = {r["pair"]: r for r in v2["pairs"]}
+        lp = v2by["cline->opencode"]
+        if abs(lp["holm_threshold"] - 0.05 / 8) > 1e-12:
+            fail(f"XFER-008: cline->opencode Holm threshold {lp['holm_threshold']} "
+                 f"is not 0.05/8 = {0.05/8}")
+        else:
+            ok("XFER-008: cline->opencode Holm threshold is 0.05/8 = 0.00625")
+        if not lp["nominally_significant"]:
+            fail("XFER-008: cline->opencode is not nominally significant")
+        else:
+            ok("XFER-008: cline->opencode is nominally significant but not Holm-significant")
+        # the implementation tests must have run and passed in the artifact
+        for tname in ("fwer_monte_carlo", "planted_signal_detection",
+                      "holm_formulations_agree", "bh_dominates_holm",
+                      "frozen_rejection_set"):
+            t = v2.get("tests", {}).get(tname)
+            if not t or not t.get("passed"):
+                fail(f"XFER-008: implementation test '{tname}' did not pass")
+            else:
+                ok(f"XFER-008: test '{tname}' passed")
+        # the wrong denominator must not appear
+        if re.search(r"0\.05\s*/\s*10", p1):
+            fail("XFER-008: paper1 still shows the wrong Holm denominator (0.05/10)")
+        else:
+            ok("XFER-008: paper1 no longer shows the wrong Holm denominator")
+        # terminology discipline
+        if "nominally significant" in p1:
+            ok("XFER-008: paper1 distinguishes 'nominally significant' from Holm")
+        else:
+            warns.append("paper1 does not use 'nominally significant' terminology")
         # warn only on the genuinely misleading pre-correction phrasing:
         # asserting a pair IS established, without the Holm caveat
         if re.search(r"one of twelve pairs is established", p1, re.I) or \

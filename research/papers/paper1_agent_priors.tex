@@ -208,10 +208,13 @@ one; we do not have a mechanism for that and flag it as an observation, not a
 finding.
 
 The pair that appeared to transfer in our earlier analysis,
-cline$\to$opencode (0.534, raw $p = 0.0094$), does \emph{not} survive Holm:
-at its rank the threshold is $0.05/10 = 0.006$, and $0.0094 > 0.006$. It does
-survive Benjamini--Hochberg, where it is one of six rejections --- and the
-other five are all below chance. We therefore report it as
+cline$\to$opencode (0.534), is \emph{nominally} significant only. Its Holm
+threshold is set by its rank among the twelve: it sits at rank 5, so the
+denominator is $m - r + 1 = 12 - 5 + 1 = 8$ and the threshold is
+$0.05/8 = 0.00625$. Its nominal $p = 0.0094$ exceeds that, so it does
+\emph{not} survive Holm. We use ``nominally significant'' for unadjusted
+$p < 0.05$ throughout and reserve ``survives Holm'' for corrected results;
+six pairs are nominally significant and three survive Holm. We therefore report it as
 \emph{BH-dependent}: it is the only positive-direction comparison in the
 family, it is the weakest of the six BH rejections, and the more conservative
 procedure that controls the probability of \emph{any} false rejection does not

@@ -57,7 +57,22 @@ if os.path.exists(_mult):
     expected.add(md["family_size"])
     _lp = [r for r in md["pairs"] if r["pair"] == "cline->opencode"][0]
     expected.add(round(_lp["holm_threshold"], 3))   # the 0.006 the text quotes
-    expected.add(0.05 / 10)                         # the arithmetic as stated
+    expected.add(0.05 / 8)                          # CORRECT denominator: rank 5
+    expected.add(round(0.05 / 8, 5))                # 0.00625
+
+# multiplicity v2 (XFER-008): corrected Holm thresholds and adjusted p-values
+_v2 = f"{REPO}/research/p1_multiplicity_v2.json"
+if os.path.exists(_v2):
+    v2 = json.load(open(_v2))
+    for r in v2["pairs"]:
+        expected.add(round(r["holm_threshold"], 5))
+        expected.add(round(r["holm_adj_p"], 4))
+        expected.add(round(r["bh_threshold"], 5))
+        expected.add(round(r["bh_adj_p"], 4))
+    expected.add(len(v2["holm_survivors"]))
+    expected.add(len(v2["bh_survivors"]))
+    expected.add(len(v2["nominally_significant"]))
+    expected.add(v2["family_size"])
 
 # corrected cold-start experiment (XFER-007): arm AUCs, paired diffs and CIs
 _cs = f"{REPO}/research/e1_coldstart_paired.json"

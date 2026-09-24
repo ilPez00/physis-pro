@@ -1,0 +1,268 @@
+{
+  "alpha": 0.05,
+  "family_size": 12,
+  "source_p_values": "/home/gio/dev/physis-pro/research/e1_multiplicity.json",
+  "source_note": "p-values come from e1_multiplicity.json, produced by session-level bootstrap, 10000 replicates; this file recomputes the corrections from them, not the p-values",
+  "corrections": [
+    "holm",
+    "benjamini_hochberg"
+  ],
+  "terminology": {
+    "nominally_significant": "raw p < alpha, uncorrected",
+    "survives_holm": "rejected by Holm step-down at alpha",
+    "survives_bh": "rejected by Benjamini-Hochberg at alpha"
+  },
+  "pairs": [
+    {
+      "pair": "claude-code->cline",
+      "auc_boot_mean": 0.47037181881079904,
+      "p_two_sided": 0.3468,
+      "p_one_sided": 0.3468,
+      "lo": 0.4081223215652197,
+      "hi": 0.5293957116763078,
+      "holm_threshold": 0.0125,
+      "holm_adj_p": 1.0,
+      "holm_reject": false,
+      "bh_threshold": 0.0375,
+      "bh_adj_p": 0.4624,
+      "bh_reject": false,
+      "nominally_significant": false,
+      "direction": "below chance"
+    },
+    {
+      "pair": "claude-code->codex",
+      "auc_boot_mean": 0.39356539942917507,
+      "p_two_sided": 0.0001,
+      "p_one_sided": 0.0001,
+      "lo": 0.137,
+      "hi": 0.4870600414078675,
+      "holm_threshold": 0.004166666666666667,
+      "holm_adj_p": 0.0012000000000000001,
+      "holm_reject": true,
+      "bh_threshold": 0.004166666666666667,
+      "bh_adj_p": 0.0006000000000000001,
+      "bh_reject": true,
+      "nominally_significant": true,
+      "direction": "below chance"
+    },
+    {
+      "pair": "claude-code->opencode",
+      "auc_boot_mean": 0.4859015948019148,
+      "p_two_sided": 0.3418,
+      "p_one_sided": 0.3418,
+      "lo": 0.45629595285476854,
+      "hi": 0.5154667429997299,
+      "holm_threshold": 0.01,
+      "holm_adj_p": 1.0,
+      "holm_reject": false,
+      "bh_threshold": 0.03333333333333333,
+      "bh_adj_p": 0.4624,
+      "bh_reject": false,
+      "nominally_significant": false,
+      "direction": "below chance"
+    },
+    {
+      "pair": "cline->claude-code",
+      "auc_boot_mean": 0.4709275589506773,
+      "p_two_sided": 0.0184,
+      "p_one_sided": 0.0184,
+      "lo": 0.4475480889253815,
+      "hi": 0.49466213422383715,
+      "holm_threshold": 0.0071428571428571435,
+      "holm_adj_p": 0.1288,
+      "holm_reject": false,
+      "bh_threshold": 0.025000000000000005,
+      "bh_adj_p": 0.0368,
+      "bh_reject": true,
+      "nominally_significant": true,
+      "direction": "below chance"
+    },
+    {
+      "pair": "cline->codex",
+      "auc_boot_mean": 0.45996023364546573,
+      "p_two_sided": 0.5364842454394693,
+      "p_one_sided": 0.5364842454394693,
+      "lo": 0.16499999999999998,
+      "hi": 0.5664682539682538,
+      "holm_threshold": 0.025,
+      "holm_adj_p": 1.0,
+      "holm_reject": false,
+      "bh_threshold": 0.04583333333333334,
+      "bh_adj_p": 0.5364842454394693,
+      "bh_reject": false,
+      "nominally_significant": false,
+      "direction": "below chance"
+    },
+    {
+      "pair": "cline->opencode",
+      "auc_boot_mean": 0.5338214827743257,
+      "p_two_sided": 0.0094,
+      "p_one_sided": 0.0094,
+      "lo": 0.5080680241587846,
+      "hi": 0.5589192131187658,
+      "holm_threshold": 0.00625,
+      "holm_adj_p": 0.0752,
+      "holm_reject": false,
+      "bh_threshold": 0.020833333333333332,
+      "bh_adj_p": 0.022560000000000004,
+      "bh_reject": true,
+      "nominally_significant": true,
+      "direction": "above chance"
+    },
+    {
+      "pair": "codex->claude-code",
+      "auc_boot_mean": 0.4888713876866408,
+      "p_two_sided": 0.2258,
+      "p_one_sided": 0.2258,
+      "lo": 0.46890329545633036,
+      "hi": 0.5068733797086388,
+      "holm_threshold": 0.008333333333333333,
+      "holm_adj_p": 1.0,
+      "holm_reject": false,
+      "bh_threshold": 0.02916666666666667,
+      "bh_adj_p": 0.3870857142857143,
+      "bh_reject": false,
+      "nominally_significant": false,
+      "direction": "below chance"
+    },
+    {
+      "pair": "codex->cline",
+      "auc_boot_mean": 0.40111018449449937,
+      "p_two_sided": 0.0002,
+      "p_one_sided": 0.0002,
+      "lo": 0.3593122175113433,
+      "hi": 0.447440669605829,
+      "holm_threshold": 0.005,
+      "holm_adj_p": 0.002,
+      "holm_reject": true,
+      "bh_threshold": 0.012500000000000002,
+      "bh_adj_p": 0.0008,
+      "bh_reject": true,
+      "nominally_significant": true,
+      "direction": "below chance"
+    },
+    {
+      "pair": "codex->opencode",
+      "auc_boot_mean": 0.4157581547795036,
+      "p_two_sided": 0.0001,
+      "p_one_sided": 0.0001,
+      "lo": 0.3791694656767682,
+      "hi": 0.4528694090166401,
+      "holm_threshold": 0.004545454545454546,
+      "holm_adj_p": 0.0012000000000000001,
+      "holm_reject": true,
+      "bh_threshold": 0.008333333333333333,
+      "bh_adj_p": 0.0006000000000000001,
+      "bh_reject": true,
+      "nominally_significant": true,
+      "direction": "below chance"
+    },
+    {
+      "pair": "opencode->claude-code",
+      "auc_boot_mean": 0.4688346366240273,
+      "p_two_sided": 0.0062,
+      "p_one_sided": 0.0062,
+      "lo": 0.4427953480571176,
+      "hi": 0.4911840468596047,
+      "holm_threshold": 0.005555555555555556,
+      "holm_adj_p": 0.055799999999999995,
+      "holm_reject": false,
+      "bh_threshold": 0.016666666666666666,
+      "bh_adj_p": 0.0186,
+      "bh_reject": true,
+      "nominally_significant": true,
+      "direction": "below chance"
+    },
+    {
+      "pair": "opencode->cline",
+      "auc_boot_mean": 0.5194844814902179,
+      "p_two_sided": 0.4714,
+      "p_one_sided": 0.4714,
+      "lo": 0.4671081449902758,
+      "hi": 0.5724370493719517,
+      "holm_threshold": 0.016666666666666666,
+      "holm_adj_p": 1.0,
+      "holm_reject": false,
+      "bh_threshold": 0.041666666666666664,
+      "bh_adj_p": 0.5364842454394693,
+      "bh_reject": false,
+      "nominally_significant": false,
+      "direction": "above chance"
+    },
+    {
+      "pair": "opencode->codex",
+      "auc_boot_mean": 0.4579696238941843,
+      "p_two_sided": 0.5364842454394693,
+      "p_one_sided": 0.5364842454394693,
+      "lo": 0.179,
+      "hi": 0.554520358868185,
+      "holm_threshold": 0.05,
+      "holm_adj_p": 1.0,
+      "holm_reject": false,
+      "bh_threshold": 0.05000000000000001,
+      "bh_adj_p": 0.5364842454394693,
+      "bh_reject": false,
+      "nominally_significant": false,
+      "direction": "below chance"
+    }
+  ],
+  "holm_survivors": [
+    "claude-code->codex",
+    "codex->cline",
+    "codex->opencode"
+  ],
+  "bh_survivors": [
+    "claude-code->codex",
+    "cline->claude-code",
+    "cline->opencode",
+    "codex->cline",
+    "codex->opencode",
+    "opencode->claude-code"
+  ],
+  "nominally_significant": [
+    "claude-code->codex",
+    "cline->claude-code",
+    "cline->opencode",
+    "codex->cline",
+    "codex->opencode",
+    "opencode->claude-code"
+  ],
+  "holm_survivors_above_chance": [],
+  "holm_survivors_below_chance": [
+    "claude-code->codex",
+    "codex->cline",
+    "codex->opencode"
+  ],
+  "tests": {
+    "fwer_monte_carlo": {
+      "value": 0.04935,
+      "alpha": 0.05,
+      "n_sim": 20000,
+      "passed": true
+    },
+    "planted_signal_detection": {
+      "value": 1.0,
+      "n_sim": 2000,
+      "passed": true
+    },
+    "holm_formulations_agree": {
+      "rejections": 3,
+      "passed": true
+    },
+    "bh_dominates_holm": {
+      "bh": 6,
+      "holm": 3,
+      "passed": true
+    },
+    "frozen_rejection_set": {
+      "set": [
+        "claude-code->codex",
+        "codex->cline",
+        "codex->opencode"
+      ],
+      "passed": true
+    }
+  },
+  "generated_sentence_for_manuscript": "cline$\\to$opencode sits at rank 5 of 12, so its Holm threshold is $0.05/(12-5+1) = 0.05/8 = 0.00625$; its nominal $p = 0.0094$ exceeds that, so it does not survive Holm.",
+  "manuscript_error_this_fixes": "paper1 read 'at its rank the threshold is 0.05/10 = 0.006'. The value was right; the denominator was rank 3's. Correct is 0.05/8 = 0.00625."
+}

@@ -1,0 +1,132 @@
+# Next experiment run — state
+
+Date: 2026-09-24
+Mode: experiment-first (attack empirical weaknesses; manuscripts only where
+experiments force a change)
+
+---
+
+## Current commit
+
+| | |
+|---|---|
+| HEAD | `6c3ec59` — "paper4: measure the sequential permuted null; paper1: leak-free cold-start" |
+| Branch | `agent/P-037-substrate` (not main) |
+| Repository | `/home/gio/dev/physis-pro` → symlink to `/home/gio/physis_pro` |
+| Remote | `git@github.com:ilPez00/physis-pro` (private) |
+| Uncommitted | pre-existing only: `docs/wiki/MODULE_MAP.md`, `physis-core` submodule, `research/perspective-discovery/rerank_{gold,task}.json`, rebuilt PDFs, one new docs plan |
+| Competing writer | none detected (`ps` shows no research script running at inspection time) |
+
+## Current manuscripts
+
+`research/papers/` — 7 live: paper1_agent_priors, paper2_trajectories,
+paper3_ontology_instability, paper4_propose_certify, paper9_dataset,
+paper10_empedocles, paperM_methodology. Plus `archive/superseded/` (papers
+5/8/11, merged into M).
+
+All 7 compile clean (undefined refs 0, missing figures 0).
+
+## Current result sources
+
+| artifact | feeds | status |
+|---|---|---|
+| `research/e74_replication_results.json` | P1, P9 | canonical |
+| `research/bootstrap_unit_check.json` | P1, P9 | canonical |
+| `research/e1_multiplicity.json` | P1 | v1 correction; superseded by v2 for arithmetic |
+| `research/p1_multiplicity_v2.json` | P1 | **new this run** |
+| `research/e1_coldstart_paired.json` | P1 | one seeded 30/12 split — 1B generalises |
+| `research/p1_repeated_splits.json` | P1 | **new this run** |
+| `research/e15_e18_rerun.json` | P3, P4 | canonical |
+| `research/e21_{proposer,permutation_null_1000,sequential_split}.json` | P4 | canonical |
+| `research/dataset_baselines.json` | P9 | point estimates only — needs session-level CIs |
+| `research/empedocles_{multiseed,fits}.json` | P10 | no positive control |
+| `benchmarks/behaviour/corpus-redacted.json.gz` | P1, P9 | scrubbed (see release audit) |
+
+Registry: `research/results_registry/{claims.json,validate.py}` — 15 claims,
+**37 checks, 0 failures** after this run's additions.
+
+Gates wired into `research/papers/build_all.sh`: registry validator + release
+audit. A paper build fails if either fails.
+
+Corpus: `benchmarks/behaviour/corpus-redacted.json.gz` — 402 sessions,
+75,933 actions, 871 kinds, 4 harnesses. 42 claude-code / 288 opencode /
+69 cline / 3 codex sessions.
+
+## Missing experiments
+
+Ranked by the assigned order of importance:
+
+1. **P1 1B** — repeated train/test partitions. *Running.*
+2. **P1 1C** — cold-start across all target harnesses × all sources.
+3. **P1 1D** — shrinkage/hierarchical prior (can cross-agent information be
+   *used* even though the naive transfer fails?).
+4. **P2 2A–2G** — external replication: ≥10 public repos, ≥500 files,
+   multiple embedders, overlap null, intrinsic dimensionality, prediction test.
+5. **P4 3A** — second rater; 3D external taxonomy replication.
+6. **P10 4A–4C** — known-critical positive control, negative control,
+   finite-size scaling.
+7. **M 5** — executable ledger invariants.
+
+## Stale manuscripts
+
+- **P3** contains proposer figures superseded by P4. Policy per brief: mark
+  SUPERSEDED / HISTORICAL, do not delete, do not maintain.
+- **P2** claims outrun its evidence (6 files, one repo, one embedder).
+- **P4** says "correct cell" in places where the target is a rater's decision;
+  and "human decision leverage" although no human was tested.
+
+## Blockers
+
+| blocker | status |
+|---|---|
+| Second human rater for P4 | **needs a human.** Falls back to a distinct model rater, labelled secondary evidence only |
+| P4 adjudication chronology | needs logs/metadata; if unrecoverable, keep sequential split with correct label |
+| P2 external repos | needs network to clone; if unavailable, record blocker and continue |
+| P1 repeated splits | running |
+| Token rotation (GitHub PAT, NVIDIA key) | **operator action** — see `research/release_audit.md` |
+
+## Exact commands
+
+```bash
+# state / gates
+cd /home/gio/dev/physis-pro
+git log --oneline -5
+python3 research/results_registry/validate.py
+python3 research/release_audit.py
+bash research/papers/build_all.sh
+
+# 1A  Holm correctness + tests
+python3 research/papers/p1_multiplicity_v2.py
+python3 research/papers/p1_multiplicity_v2.py --selftest
+
+# 1B  repeated partitions
+python3 research/papers/p1_repeated_splits.py --partitions 500
+
+# 1C / 1D  (this run)
+python3 research/papers/p1_all_targets_coldstart.py
+python3 research/papers/p1_shrinkage_prior.py
+
+# trace checks
+python3 research/papers/verify_paper1.py
+python3 research/papers/verify_paper4.py
+python3 research/papers/verify_papers910.py
+```
+
+## Run order (from the brief)
+
+1. state ✔
+2. Holm fix + tests ✔
+3. P1 repeated splits ▶
+4. P1 all-target cold-start
+5. P1 shrinkage prior
+6. commit
+7–10. P2 external corpus, overlap nulls, dimensionality, prediction
+11. commit
+12–13. P4 rater / chronology / external taxonomy
+14. commit
+15–17. P10 controls + finite-size
+18. commit
+19–20. M ledger invariants, commit
+21. registry update
+22. adversarial consistency audit
+23–24. manuscripts + PDFs, final commit

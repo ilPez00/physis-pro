@@ -1,0 +1,62 @@
+{
+  "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+  "claims_checked": 15,
+  "invariants": {
+    "I1_threshold_frozen": {
+      "failed_items": [],
+      "n_failed": 0
+    },
+    "I2_null_registered": {
+      "failed_items": [],
+      "n_failed": 0
+    },
+    "I3_stop_prevents_execution": {
+      "passed": true,
+      "executed": false,
+      "experiment_calls": []
+    },
+    "I4_superseded_addressable": {
+      "failed_items": [],
+      "n_failed": 0
+    },
+    "I5_artifact_resolves": {
+      "failed_items": [],
+      "n_failed": 0
+    },
+    "I6_provenance": {
+      "failed_items": [],
+      "n_failed": 0
+    },
+    "I7_manuscript_numbers_have_ids": {
+      "passed": true,
+      "claims": 7,
+      "citations": {
+        "CORPUS-001": [],
+        "CORPUS-002": [],
+        "XFER-001": [],
+        "XFER-002": [],
+        "XFER-003": [],
+        "XFER-004": [],
+        "PROP-001": [],
+        "PROP-002": [],
+        "PROP-003": [],
+        "PROP-004": [],
+        "GRAN-001": [],
+        "EMP-001": [],
+        "XFER-005": [],
+        "XFER-006": [],
+        "XFER-007": []
+      }
+    },
+    "I8_missing_provenance_fails": {
+      "passed": true,
+      "violations_caught": [
+        "TEST-STRIP: artifact missing: research/does-not-exist.json",
+        "TEST-STRIP: no source_script",
+        "TEST-STRIP: no git_commit recorded"
+      ]
+    }
+  },
+  "failed_invariants": [],
+  "note": "I1/I2/I4/I5/I6 are reported against the live ledger. A report of failures here means the live ledger is incomplete, not that the invariant is wrong -- filling the missing provenance is the point."
+}
