@@ -192,3 +192,26 @@ violation.
 Cross-reference: M invariant I9 exists because a hand-checked value drifted
 from its artifact; these three exist because the hand-check was wrong in the
 other direction.
+
+### P4 second rater — model-availability findings (2026-09-24)
+
+| route | status |
+|---|---|
+| local ollama generation | **unusable** — times out (280s on a trivial prompt; 8.5B and 2.6B alike). Embeddings work; generation does not. |
+| nvidia endpoint | **works, unreliable as a rater** — 54s/call; the model is a reasoning model that spends its budget on a trace. At max_tokens=512 it never reached an answer (degenerate output, `"Hereellsellsells..."`). At 2048 the parse rate rose to ~50% (one item returned a clean `ANSWER: BOND/GUIDE`, two were truncated mid-trace). |
+| kilo `~` free tier | **blocked on sign-in** — every `~`-prefixed model returns "You need to sign in to use this model." |
+| kilo `openrouter/free`, `z-ai/glm-5.2:free`, `qwen/qwen3.8-27b:free` | **blocked** — server errors (`UnknownError`), or "Model not found" for the exact name it suggested. |
+
+kilo is installed (`~/.local/bin/kilo`, v7.7.5) and authenticated for Google,
+DeepSeek, Z.AI, ZenMux, Meta, OrcaRouter, TokenRouter, SiliconFlow and Venice;
+`kilo models` lists 1031 entries. `kilo run --model <id>` takes bare names
+(`claude-haiku-4-5`), not provider-prefixed ones. The free router needs
+`kilo auth login`, which is interactive and therefore the operator's action, not
+the agent's.
+
+Next attempt should either (a) run `kilo auth login` and use `openrouter/free`,
+or (b) use a non-reasoning model on the nvidia endpoint, which would remove the
+trace-truncation failure entirely rather than working around it.
+
+Harness state: blindness verified (228 checks, 0 leaks), writes a JSONL line per
+item and resumes, so no further work can be lost. 4 items rated so far.

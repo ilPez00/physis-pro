@@ -117,7 +117,7 @@ def ask_openai(model, entry, source, cells, timeout=300):
     key = _nvidia_key()
     if not key:
         return None, "NO-KEY", 0.0
-    body = {"model": model, "temperature": 0, "max_tokens": 512,
+    body = {"model": model, "temperature": 0, "max_tokens": 2048,
             "messages": [{"role": "user",
                           "content": build_prompt(entry, source, cells)}]}
     req = urllib.request.Request(
