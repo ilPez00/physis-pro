@@ -1,0 +1,263 @@
+{
+  "corpus": {
+    "sessions": 402,
+    "actions": 75933,
+    "harnesses": {
+      "claude-code": {
+        "sessions": 42,
+        "actions": 14457
+      },
+      "cline": {
+        "sessions": 69,
+        "actions": 12354
+      },
+      "codex": {
+        "sessions": 3,
+        "actions": 662
+      },
+      "opencode": {
+        "sessions": 288,
+        "actions": 48460
+      }
+    },
+    "label_rates": {
+      "claude-code": {
+        "marker_error": 0.061354361209102856,
+        "harness_error": 0.03126513107837034
+      },
+      "cline": {
+        "marker_error": 0.07398413469321677,
+        "harness_error": 0.0051805083373806056
+      },
+      "codex": {
+        "marker_error": 0.0377643504531722,
+        "harness_error": 0.010574018126888218
+      },
+      "opencode": {
+        "marker_error": 0.04820470491126702,
+        "harness_error": 0.02022286421791168
+      }
+    },
+    "merged_marker_error": 0.0548114785402921,
+    "source": "benchmarks/behaviour/corpus-redacted.json.gz"
+  },
+  "transfer_matrix": {
+    "claude-code->cline": {
+      "auc": 0.47169261947024527,
+      "lo": 0.40705453559082416,
+      "hi": 0.5316094576454222
+    },
+    "claude-code->codex": {
+      "auc": 0.44191522762951335,
+      "lo": 0.137,
+      "hi": 0.4870600414078675
+    },
+    "claude-code->opencode": {
+      "auc": 0.48563548227796904,
+      "lo": 0.4547361450136521,
+      "hi": 0.5143590633983062
+    },
+    "cline->claude-code": {
+      "auc": 0.4710167913005261,
+      "lo": 0.44813615259543343,
+      "hi": 0.49533359184150927
+    },
+    "cline->codex": {
+      "auc": 0.5125902668759812,
+      "lo": 0.16499999999999998,
+      "hi": 0.5664682539682538
+    },
+    "cline->opencode": {
+      "auc": 0.534486464346259,
+      "lo": 0.5094232126237836,
+      "hi": 0.5587167582953116
+    },
+    "codex->claude-code": {
+      "auc": 0.4892949331995192,
+      "lo": 0.4692854443525175,
+      "hi": 0.5059619198371235
+    },
+    "codex->cline": {
+      "auc": 0.39914810982234394,
+      "lo": 0.35921478774746723,
+      "hi": 0.44837227034960614
+    },
+    "codex->opencode": {
+      "auc": 0.414642166017929,
+      "lo": 0.378098940744568,
+      "hi": 0.4535357733667394
+    },
+    "opencode->claude-code": {
+      "auc": 0.4693836875726431,
+      "lo": 0.44510621455537147,
+      "hi": 0.4901341989693243
+    },
+    "opencode->cline": {
+      "auc": 0.5192539613012807,
+      "lo": 0.46769740016790007,
+      "hi": 0.573095609210424
+    },
+    "opencode->codex": {
+      "auc": 0.5026373626373627,
+      "lo": 0.179,
+      "hi": 0.554520358868185
+    }
+  },
+  "in_corpus": {
+    "claude-code": {
+      "auc": 0.6274413268209684,
+      "lo": 0.6055178110308141,
+      "hi": 0.655886798139964,
+      "n_sessions": 42,
+      "n_actions": 14457
+    },
+    "cline": {
+      "auc": 0.7505779368334073,
+      "lo": 0.6902957694634296,
+      "hi": 0.8057160203121183,
+      "n_sessions": 69,
+      "n_actions": 12354
+    },
+    "codex": {
+      "auc": 0.46147566718995287,
+      "lo": 0.34099999999999997,
+      "hi": 0.5083333333333333,
+      "n_sessions": 3,
+      "n_actions": 662
+    },
+    "opencode": {
+      "auc": 0.6804461941039224,
+      "lo": 0.6417216634428522,
+      "hi": 0.717863881002736,
+      "n_sessions": 288,
+      "n_actions": 48460
+    }
+  },
+  "coldstart": [
+    {
+      "label": "transferred_only",
+      "n_target_sessions": 0,
+      "auc": 0.4693836875726431,
+      "lo": 0.44501038004272875,
+      "hi": 0.49009573852447497,
+      "n_actions": 14457,
+      "n_sessions": 42
+    },
+    {
+      "label": "mixed_n2",
+      "n_target_sessions": 2,
+      "auc": 0.5984211890576983,
+      "lo": 0.562196611633546,
+      "hi": 0.6352514631376176,
+      "n_actions": 14457,
+      "n_sessions": 42
+    },
+    {
+      "label": "mixed_n5",
+      "n_target_sessions": 5,
+      "auc": 0.6225159285146374,
+      "lo": 0.5909705079955591,
+      "hi": 0.6563662498453818,
+      "n_actions": 14457,
+      "n_sessions": 42
+    },
+    {
+      "label": "mixed_n10",
+      "n_target_sessions": 10,
+      "auc": 0.6293473899169116,
+      "lo": 0.6001287055099165,
+      "hi": 0.6627359108394907,
+      "n_actions": 14457,
+      "n_sessions": 42
+    },
+    {
+      "label": "mixed_n20",
+      "n_target_sessions": 20,
+      "auc": 0.6756516172769864,
+      "lo": 0.6505163786871111,
+      "hi": 0.7051478028614441,
+      "n_actions": 14457,
+      "n_sessions": 42
+    },
+    {
+      "label": "mixed_n30",
+      "n_target_sessions": 30,
+      "auc": 0.6859049780710319,
+      "lo": 0.659981706134271,
+      "hi": 0.7141373288311028,
+      "n_actions": 14457,
+      "n_sessions": 42
+    },
+    {
+      "label": "own_only",
+      "n_target_sessions": 42,
+      "auc": 0.7202244987990785,
+      "lo": 0.6995643410149447,
+      "hi": 0.7428444133574542,
+      "n_actions": 14457,
+      "n_sessions": 42
+    }
+  ],
+  "coverage": [
+    {
+      "pair": "claude-code->cline",
+      "coverage": 0.6448923425611138,
+      "transfer_auc": 0.47169261947024527
+    },
+    {
+      "pair": "claude-code->codex",
+      "coverage": 0.4697885196374622,
+      "transfer_auc": 0.44191522762951335
+    },
+    {
+      "pair": "claude-code->opencode",
+      "coverage": 0.3982253404869996,
+      "transfer_auc": 0.48563548227796904
+    },
+    {
+      "pair": "cline->claude-code",
+      "coverage": 0.3920592100712458,
+      "transfer_auc": 0.4710167913005261
+    },
+    {
+      "pair": "cline->codex",
+      "coverage": 0.4637462235649547,
+      "transfer_auc": 0.5125902668759812
+    },
+    {
+      "pair": "cline->opencode",
+      "coverage": 0.37486586875773836,
+      "transfer_auc": 0.534486464346259
+    },
+    {
+      "pair": "codex->claude-code",
+      "coverage": 0.24085218233381753,
+      "transfer_auc": 0.4892949331995192
+    },
+    {
+      "pair": "codex->cline",
+      "coverage": 0.35292213048405374,
+      "transfer_auc": 0.39914810982234394
+    },
+    {
+      "pair": "codex->opencode",
+      "coverage": 0.17214197276104004,
+      "transfer_auc": 0.414642166017929
+    },
+    {
+      "pair": "opencode->claude-code",
+      "coverage": 0.4020197828041779,
+      "transfer_auc": 0.4693836875726431
+    },
+    {
+      "pair": "opencode->cline",
+      "coverage": 0.7425125465436296,
+      "transfer_auc": 0.5192539613012807
+    },
+    {
+      "pair": "opencode->codex",
+      "coverage": 0.5,
+      "transfer_auc": 0.5026373626373627
+    }
+  ]
+}
