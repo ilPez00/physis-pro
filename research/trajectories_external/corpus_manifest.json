@@ -1,5 +1,5 @@
 {
-  "built": "2026-09-24T16:39:48",
+  "built": "2026-09-24T16:45:08",
   "min_revs": 8,
   "repos": [
     {
@@ -8,15 +8,124 @@
       "commit": "3fce3b5bb0236da2df6d99672afb8a719642eca7",
       "how": "cloned",
       "candidates": 111,
-      "files": 17,
-      "revisions": 410,
-      "shard": "research/trajectories_external/shards/ripgrep.jsonl",
-      "seconds": 269.0
+      "files": 37,
+      "revisions": 625,
+      "shard": "research/trajectories_external/shards/ripgrep.jsonl.gz",
+      "clone_deleted_mb": 11,
+      "seconds": 1.8
+    },
+    {
+      "repo": "serde-rs/serde",
+      "status": "ok",
+      "commit": "6693a89cca77e0151437da1c7f890090b9ebf04c",
+      "how": "cloned",
+      "candidates": 208,
+      "files": 47,
+      "revisions": 1121,
+      "shard": "research/trajectories_external/shards/serde.jsonl.gz",
+      "clone_deleted_mb": 13,
+      "seconds": 2.5
+    },
+    {
+      "repo": "psf/requests",
+      "status": "ok",
+      "commit": "611c6162cbc4ac2020a2f91c7cfa4f3abf9bbb60",
+      "how": "cloned",
+      "candidates": 37,
+      "files": 12,
+      "revisions": 263,
+      "shard": "research/trajectories_external/shards/requests.jsonl.gz",
+      "clone_deleted_mb": 19,
+      "seconds": 2.8
+    },
+    {
+      "repo": "pallets/flask",
+      "status": "ok",
+      "commit": "d73fa1cdcbd8b1465c151db8924ba58b1dd14e35",
+      "how": "cloned",
+      "candidates": 83,
+      "files": 43,
+      "revisions": 1128,
+      "shard": "research/trajectories_external/shards/flask.jsonl.gz",
+      "clone_deleted_mb": 16,
+      "seconds": 2.4
+    },
+    {
+      "repo": "scrapy/scrapy",
+      "status": "ok",
+      "commit": "08f0636b821cb1bc829c593e0382653e4058ab6f",
+      "how": "cloned",
+      "candidates": 509,
+      "files": 249,
+      "revisions": 7740,
+      "shard": "research/trajectories_external/shards/scrapy.jsonl.gz",
+      "clone_deleted_mb": 43,
+      "seconds": 7.1
+    },
+    {
+      "repo": "expressjs/express",
+      "status": "ok",
+      "commit": "9a34acf03cb818ff3f8bc40e44176e277a25cbb9",
+      "how": "cloned",
+      "candidates": 141,
+      "files": 84,
+      "revisions": 1456,
+      "shard": "research/trajectories_external/shards/express.jsonl.gz",
+      "clone_deleted_mb": 13,
+      "seconds": 2.3
+    },
+    {
+      "repo": "axios/axios",
+      "status": "ok",
+      "commit": "961241f6c19798eff16b0869486c125430a17961",
+      "how": "cloned",
+      "candidates": 223,
+      "files": 43,
+      "revisions": 834,
+      "shard": "research/trajectories_external/shards/axios.jsonl.gz",
+      "clone_deleted_mb": 34,
+      "seconds": 4.2
+    },
+    {
+      "repo": "jqlang/jq",
+      "status": "ok",
+      "commit": "df24981307658868759faaea76b817cc62dd6be0",
+      "how": "cloned",
+      "candidates": 55,
+      "files": 22,
+      "revisions": 462,
+      "shard": "research/trajectories_external/shards/jq.jsonl.gz",
+      "clone_deleted_mb": 15,
+      "seconds": 1.9
+    },
+    {
+      "repo": "fmtlib/fmt",
+      "status": "ok",
+      "commit": "6d71f74624be5daa548073ff8e4e0c8aa5476010",
+      "how": "cloned",
+      "candidates": 79,
+      "files": 50,
+      "revisions": 1575,
+      "shard": "research/trajectories_external/shards/fmt.jsonl.gz",
+      "clone_deleted_mb": 23,
+      "seconds": 3.6
+    },
+    {
+      "repo": "nlohmann/json",
+      "status": "ok",
+      "commit": "ed513715a89f288ae571c4a3b84952bf6839b775",
+      "how": "cloned",
+      "candidates": 523,
+      "files": 140,
+      "revisions": 2770,
+      "shard": "research/trajectories_external/shards/json.jsonl.gz",
+      "clone_deleted_mb": 308,
+      "seconds": 37.0
     }
   ],
   "totals": {
-    "files": 17,
-    "revisions": 410
+    "files": 727,
+    "revisions": 17974
   },
   "note": "No rename tracking: history restarts at a rename. Consecutive identical contents deduped.",
   "reproduce": "python3 research/papers/p2_build_corpus.py"

@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -89,6 +90,7 @@ MIN_REVS = 8          # the brief's floor for a "meaningful trajectory"
 MAX_TEXT = 8_000
 MAX_FILE_BYTES = 200_000
 GZIP_SHARDS = True
+KEEP_CLONES = False   # clones are scratch; see clone()
 
 
 def sh(cmd, cwd=None, timeout=1800, check=False):
@@ -99,11 +101,20 @@ def sh(cmd, cwd=None, timeout=1800, check=False):
 
 
 def clone(slug, dest):
+    """FULL clone, deliberately.
+
+    `--filter=blob:none` looks cheaper and is a trap here: `git cat-file
+    --batch` then lazily fetches every missing blob from the promisor remote,
+    one network round trip per blob. Selecting ~3,000 revisions serialises into
+    tens of minutes with no progress output, which is exactly how the first two
+    builds appeared to hang. A full clone pays its cost once, up front, and
+    `cat-file` afterwards is local. Clones are scratch: each is deleted after
+    its shard is written, so peak disk is one repo, not ten.
+    """
     if os.path.isdir(os.path.join(dest, ".git")):
         return True, "cached"
     url = f"https://github.com/{slug}.git"
-    p = sh(["git", "clone", "--filter=blob:none", "--quiet", url, dest],
-           timeout=1800)
+    p = sh(["git", "clone", "--quiet", url, dest], timeout=1800)
     if p.returncode != 0:
         return False, p.stderr.strip()[:300]
     return True, "cloned"
@@ -255,9 +266,21 @@ def build_repo(slug, lang, files_per_repo, max_rev_per_file):
         for r in rows:
             fh.write(json.dumps(r) + "\n")
 
+    # Clones are scratch. Deleting each one after its shard is written keeps
+    # peak disk at one repository instead of ten -- which matters on a box with
+    # ~3 GB usable.
+    freed = 0
+    if not KEEP_CLONES:
+        try:
+            freed = int(sh(["du", "-sm", dest]).stdout.split()[0])
+            shutil.rmtree(dest, ignore_errors=True)
+        except Exception:
+            pass
+
     return {"repo": slug, "status": "ok", "commit": commit, "how": how,
             "candidates": len(cands), "files": n_files, "revisions": n_revs,
             "shard": os.path.relpath(shard, REPO),
+            "clone_deleted_mb": freed,
             "seconds": round(time.time() - t0, 1)}
 
 
@@ -266,7 +289,10 @@ def main():
     ap.add_argument("--repos", type=int, default=len(REPOS))
     ap.add_argument("--files-per-repo", type=int, default=140)
     ap.add_argument("--max-rev-per-file", type=int, default=40)
+    ap.add_argument("--keep-clones", action="store_true")
     a = ap.parse_args()
+    global KEEP_CLONES
+    KEEP_CLONES = a.keep_clones
 
     os.makedirs(WORK, exist_ok=True)
     os.makedirs(SHARDS, exist_ok=True)
