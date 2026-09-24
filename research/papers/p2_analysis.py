@@ -95,7 +95,7 @@ def _chunk_dir():
     return d
 
 
-def embed_nomic(texts, batch=32, workers=1):
+def embed_nomic(texts, batch=8, workers=1):
     """Embed via ollama, RESUMABLY.
 
     The first version accumulated everything in memory and wrote one npz at the
@@ -126,7 +126,7 @@ def embed_nomic(texts, batch=32, workers=1):
             headers={"Content-Type": "application/json"})
         for attempt in range(3):
             try:
-                return json.load(urllib.request.urlopen(req, timeout=300))["embeddings"]
+                return json.load(urllib.request.urlopen(req, timeout=900))["embeddings"]
             except (urllib.error.URLError, TimeoutError, KeyError, OSError):
                 if attempt == 2:
                     raise
@@ -134,7 +134,16 @@ def embed_nomic(texts, batch=32, workers=1):
 
     n0 = len(done)
     for k, b in enumerate(batches):
-        vecs = one(b)
+        try:
+            vecs = one(b)
+        except Exception as e:            # noqa: BLE001
+            # Exit CLEANLY with what we have instead of raising. Every earlier
+            # chunk is already on disk, so a rerun resumes instead of restarting;
+            # the first version raised and a single slow request ended the run.
+            print(f"  stopping at chunk {n0+k}: {type(e).__name__}: {str(e)[:120]}\n"
+                  f"  {n0+k} chunks of {len(batches)+n0} are on disk; "
+                  f"re-run to resume", flush=True)
+            break
         arr = np.asarray(vecs, dtype=np.float32)
         arr /= np.maximum(np.linalg.norm(arr, axis=1, keepdims=True), 1e-12)
         np.save(os.path.join(d, f"chunk_{n0 + k:06d}.npy"), arr)
