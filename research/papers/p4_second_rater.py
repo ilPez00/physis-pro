@@ -45,6 +45,12 @@ PARTIAL = os.path.join(REPO, "research", "p4_rater2_partial.jsonl")
 
 
 def _load_partial():
+    """Rows already rated.
+
+    A REQUEST-FAILED row is a transport failure, not a rating, so it must NOT
+    count as done -- otherwise a resume silently skips items that were never
+    asked. Returning only genuine attempts makes a rerun retry them.
+    """
     if not os.path.exists(PARTIAL):
         return [], 0, 0.0
     out, fails, t = [], 0, 0.0
@@ -54,6 +60,8 @@ def _load_partial():
                 r = json.loads(line)
             except ValueError:
                 continue
+            if r.get("rater2_raw") == "REQUEST-FAILED":
+                continue          # transport failure, not a rating: retry it
             out.append(r)
             fails += 1 if r.get("rater2_cell") is None else 0
             t += r.get("seconds", 0.0)
@@ -213,7 +221,7 @@ def main():
     a = ap.parse_args()
 
     if a.backend == "nvidia" and a.model == "lfm2.5:latest":
-        a.model = "nvidia/nemotron-3.5-lightning-30b-a3b"
+        a.model = "mistralai/mistral-nemotron"
     rows = load_gate()
     cells = sorted({r["rater1_cell"] for r in rows})
     print(f"corpus: {len(rows)} entries, {len(cells)} candidate cells")
@@ -282,7 +290,7 @@ def main():
             fails += 1
         out.append({"n": s["n"], "entry": s["entry"], "source": s["source"],
                     "rater1_cell": s["rater1_cell"], "rater2_cell": cell,
-                    "rater2_raw": raw[:80], "seconds": secs})
+                    "rater2_raw": raw[:2000], "raw_len": len(raw), "seconds": secs})
         if k % 5 == 0 or k == len(sample):
             print(f"  {k}/{len(sample)}  fails={fails}  {t_total:.0f}s", flush=True)
         # Flush after every item: a kill must not discard the run.
