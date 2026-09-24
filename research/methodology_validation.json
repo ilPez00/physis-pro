@@ -1,5 +1,5 @@
 {
-  "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
+  "git_commit": "96c004ebfac97df6fff90597c716d41906f9007e",
   "claims_checked": 15,
   "invariants": {
     "I1_threshold_frozen": {
@@ -55,6 +55,12 @@
         "TEST-STRIP: no source_script",
         "TEST-STRIP: no git_commit recorded"
       ]
+    },
+    "I9_artifact_params_match": {
+      "passed": true,
+      "failed_items": [],
+      "detail": "checked 3 artifacts carrying run parameters",
+      "note": "catches an artifact silently replaced by a differently-parameterised run"
     }
   },
   "failed_invariants": [],

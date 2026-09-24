@@ -167,6 +167,66 @@ def _dig(obj, path):
     return cur
 
 
+RUN_PARAM_KEYS = ("n_partitions", "n_boot", "n_runs", "n_shuffles", "n_seeds",
+                  "n_resamples", "n_replicates", "seeds", "n", "n_sessions",
+                  "n_actions", "n_test_sessions", "n_test_actions")
+
+
+def artifact_run_params(path):
+    """Top-level run parameters an artifact declares, if any."""
+    import os
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        import json as _j
+        d = _j.load(open(path))
+    except (ValueError, OSError, UnicodeDecodeError):
+        return None
+    if not isinstance(d, dict):
+        return None
+    return {k: d[k] for k in RUN_PARAM_KEYS if k in d}
+
+
+def check_I9_artifact_params(ledger):
+    """An artifact must still be the run the claim says it is.
+
+    This is the invariant that would have caught the real incident in this
+    audit: two experiment scripts wrote a FIXED canonical path, so a run at a
+    different --partitions silently replaced an artifact built with other
+    parameters. The claim still pointed at a valid file, every other check
+    passed, and the numbers in the report no longer matched the run behind
+    them. Recording the run parameters in the claim and re-checking them
+    against the artifact turns that silent replacement into a hard failure.
+    """
+    import os
+    errs = []
+    checked = 0
+    for c in ledger["claims"]:
+        p = c.get("artifact_path") or c.get("result_file")
+        if not p or str(p).startswith("n/a"):
+            continue
+        if not os.path.isabs(p):
+            p = os.path.join(REPO, p)
+        actual = artifact_run_params(p)
+        if not actual:
+            continue
+        recorded = c.get("artifact_params")
+        if recorded is None:
+            errs.append(f"{c['claim_id']}: artifact declares run parameters "
+                        f"{sorted(actual)} but the claim records none")
+            continue
+        for k, v in actual.items():
+            if k not in recorded:
+                errs.append(f"{c['claim_id']}: artifact has {k}={v!r}, claim does not "
+                            f"record it")
+            elif recorded[k] != v:
+                errs.append(f"{c['claim_id']}: {k} mismatch -- artifact says {v!r}, "
+                            f"claim records {recorded[k]!r} (artifact was "
+                            f"replaced by a differently-parameterised run?)")
+        checked += 1
+    return errs, f"checked {checked} artifacts carrying run parameters"
+
+
 def check_I6_provenance(ledger):
     """Every artifact records its producing script and the commit.
 
@@ -264,6 +324,14 @@ def main():
     results["I8_missing_provenance_fails"] = {"passed": ok8, "violations_caught": info8}
     if not ok8:
         checks_failed.append("I8_missing_provenance_fails")
+    _errs9, info9 = check_I9_artifact_params(ledger)
+    results["I9_artifact_params_match"] = {
+        "passed": not _errs9, "failed_items": _errs9, "detail": info9,
+        "note": ("catches an artifact silently replaced by a "
+                 "differently-parameterised run"),
+    }
+    if _errs9:
+        checks_failed.append("I9_artifact_params_match")
 
     json.dump({
         "git_commit": git_commit(),

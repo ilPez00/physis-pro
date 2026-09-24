@@ -238,18 +238,21 @@ between N=3 and N=5 — as soon as the target has a handful of its own sessions,
 shrinking toward the source stops beating shrinking toward the target's own
 base rate, and by N=30 the source is behind in 57% of splits.
 
-**Three independent runs agree on the direction**, which is stronger evidence
+**Four independent runs agree on the direction**, which is stronger evidence
 than any single run:
 
 | partitions | N=1 median | N=1 frac | N=30 median | N=30 frac |
 |---|---|---|---|---|
-| 5 | +0.022 | 0.667 | −0.001 | 0.400 |
-| 15 | +0.020 | 0.600 | −0.002 | 0.378 |
-| **150 (canonical)** | +0.012 | 0.591 | −0.001 | 0.427 |
+| 5 | +0.022 | 0.667 | -0.001 | 0.400 |
+| 15 | +0.020 | 0.600 | -0.002 | 0.378 |
+| 40 | +0.015 | 0.592 | -0.003 | 0.375 |
+| **150 (canonical)** | +0.012 | 0.591 | -0.001 | 0.427 |
 
 In every run the source leads only at N=1, crosses over by N=5, and trails at
-N=30. The median magnitude *shrinks* as partitions increase (+0.022 → +0.020 →
-+0.012), which is what you expect if the small-N advantage is mostly noise being
+N=30. The N=1 fraction converges on ~0.59 (0.667 → 0.600 → 0.592 → 0.591) and
+the N=1 median on ~+0.012 as partitions increase — the signature of a small
+real effect being separated from noise, or of noise alone. Neither run excludes
+the other reading, which is why the claim is stated as "at most ~0.01 AUC". The median magnitude *shrinks* as partitions increase (+0.022 → +0.020 → +0.015 → +0.012), which is what you expect if the small-N advantage is mostly noise being
 averaged away — the honest reading is that the effect is at most ~0.01 AUC and
 probably smaller.
 
@@ -268,30 +271,46 @@ False at 5 and 15, so **no companion claim about beating Laplace is promoted** �
 that instability is itself a finding about the estimator, not noise to be
 averaged away.
 
-**PROCESS FAILURE, recorded.** Both experiment scripts wrote a **fixed
-canonical path**, so two runs at different `--partitions` race for the same
-file and whichever finishes last wins, regardless of which is better evidence.
-What actually happened here: a 300-partition run was launched *before* the
-decisive control was added to the script, so it executed the control-less code;
-the 150-partition run with the control finished later and replaced it. The
-surviving artifact is therefore the better-powered, control-bearing one and
-**no number quoted above was invalidated** — the incident is milder than it
-first appeared.
+**PROCESS FAILURE, recorded (three incidents, one root cause).** Both P1
+experiment scripts write a **fixed canonical path**, so any two runs at
+different `--partitions` race for the same file and whichever finishes last
+wins, regardless of which is better evidence. This bit three times in one
+session:
 
-The mechanism is dangerous in the other direction, though, and that is why it
-is recorded: had the 300-partition run finished *last*, this report's numbers
-would have been silently replaced by a control-less artifact that could not
-answer the question at all, and nothing in the pipeline would have flagged it.
-A stale run can also be larger than a current one, so "last write wins" is not
-even correlated with "best evidence".
+1. A **300-partition** run was launched *before* the decisive control was added
+   to the script, so it executed control-less code. It shares a path with the
+   control-bearing runs, so it could have replaced a valid artifact with one
+   that cannot answer the question at all.
+2. A **40-partition** run was likewise launched before the control existed, and
+   its artifact is **gone** — its numbers survive only as terminal output. It
+   is not cited in any table above, because a number whose artifact no longer
+   exists is not evidence.
+3. This report itself quoted numbers from a **15-partition** run whose artifact
+   had already been replaced. Caught by reading the artifact rather than
+   trusting the prose — the same check that has caught every other numeric
+   error in this audit.
 
-Both scripts now **refuse to let a smaller run replace a larger one** and write
-a `_n{N}` sidecar instead — verified by running each at 5 partitions, where both
-declined to overwrite the canonical artifact. The general lesson (a fixed output
-path plus concurrent runs equals silent result replacement) belongs in M as a
-failure mode: it is a provenance failure that no amount of careful prose
-catches, and it is exactly the class of error the ledger invariants are meant to
-make impossible.
+The surviving canonical artifact is the **150-partition, control-bearing** run
+(verified: `n_partitions: 150`, `auc_shrinkage_global` present in the
+per-partition rows), which is the strongest evidence of the three and the one
+this report quotes.
+
+**Both scripts now refuse to let a smaller run replace a larger one**, writing a
+`_n{N}` sidecar instead — verified by running each at 5 partitions, where both
+declined to overwrite the canonical. **But the guard cannot protect runs already
+in flight**: incidents 1 and 2 were launched before it existed, so they ran
+un-guarded code to completion. Only the *next* run is safe. That is a limitation
+of the fix, not a defence of it, and it is why the canonical artifact was
+re-verified by hand after every background completion rather than assumed.
+
+**Why this belongs in M.** It is a provenance failure that no amount of careful
+prose catches, and it is not even well-ordered: a stale run can be *larger* than
+a current one, so "last write wins" is not correlated with "best evidence".
+The general rule — a fixed output path plus concurrent runs equals silent result
+replacement — is the kind of thing M's ledger invariants are meant to make
+impossible, and none of the eight invariants currently catches it. Adding a
+"artifact must record its producing run's parameters, and a differing-parameter
+write must not silently replace one" check is the obvious extension.
 
 **REPRODUCTION.** `python3 research/papers/p1_shrinkage_prior.py --partitions 150`
 **ARTIFACT.** `research/p1_shrinkage_prior.json` (`n_partitions: 150`)

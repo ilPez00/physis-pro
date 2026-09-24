@@ -183,7 +183,10 @@
       "threshold": "top-k containment exceeds the matched null's top-k",
       "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
       "criterion_history": [],
-      "criterion_hash": "877927ef88bcfea0"
+      "criterion_hash": "877927ef88bcfea0",
+      "artifact_params": {
+        "n_shuffles": 1000
+      }
     },
     {
       "claim_id": "PROP-002",
@@ -326,7 +329,10 @@
       "threshold": "Holm step-down at alpha = 0.05",
       "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
       "criterion_history": [],
-      "criterion_hash": "70401eca68f874cf"
+      "criterion_hash": "70401eca68f874cf",
+      "artifact_params": {
+        "n_boot": 10000
+      }
     },
     {
       "claim_id": "XFER-006",
@@ -375,7 +381,10 @@
       "threshold": "paired session-level bootstrap CI on local-minus-borrowed excludes 0",
       "git_commit": "6c3ec59231d739631f71d9e45341057fda679483",
       "criterion_history": [],
-      "criterion_hash": "02e765f5c79a1499"
+      "criterion_hash": "02e765f5c79a1499",
+      "artifact_params": {
+        "n_boot": 2000
+      }
     }
   ],
   "criteria_completed": "2026-09-24"

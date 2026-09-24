@@ -112,6 +112,24 @@ def main():
                 })
             c["criterion_hash"] = h
 
+    # Record each artifact's own run parameters so a silent replacement by a
+    # differently-parameterised run becomes a hard failure (invariant I9).
+    # Derived from the artifact, never hand-typed.
+    import os as _os
+    sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from invariants import artifact_run_params, REPO as _R
+    n_ap = 0
+    for c in ledger["claims"]:
+        p = c.get("result_file") or c.get("artifact_path")
+        if not p or str(p).startswith("n/a"):
+            continue
+        if not _os.path.isabs(p):
+            p = _os.path.join(_R, p)
+        actual = artifact_run_params(p)
+        if actual:
+            c["artifact_params"] = actual
+            n_ap += 1
+
     ledger["registry_version"] = "2.0.0"
     ledger["criteria_completed"] = "2026-09-24"
     json.dump(ledger, open(CLAIMS, "w"), indent=2)
@@ -119,6 +137,7 @@ def main():
     print(f"registry completed at commit {commit[:12]}")
     for k, v in added.items():
         print(f"  {k} filled: {v}")
+    print(f"  artifact_params recorded for {n_ap} claims")
     print(f"  claims: {len(ledger['claims'])}")
 
 
