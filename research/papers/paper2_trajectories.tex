@@ -17,7 +17,7 @@
 \begin{abstract}
 Revisions of a single source file form a low-dimensional directed semantic
 trajectory in embedding space. We analyze six files from a Rust codebase
-and find that (1) within-object distances are 4--14{\times} smaller than
+and find that (1) within-object distances are 4--14$\times$ smaller than
 between-object distances, (2) five of six files show temporal direction
 (Spearman $\rho$ up to +0.976, outside a 2000-permutation shuffled-time
 null), and (3) the trajectories occupy 2--3 dimensions of the 768-dimensional
@@ -93,7 +93,7 @@ of the Gram matrix.}
 \subsection{Identity}
 
 Within-object distances (mean pairwise cosine distance between revisions
-of the same file) are 4--14{\times} smaller than between-object distances
+of the same file) are 4--14$\times$ smaller than between-object distances
 (mean cosine distance between revisions of different files). A file's
 revisions form a tight region of the embedding field; a different file is
 elsewhere.
@@ -133,7 +133,7 @@ level ($\rho = +0.665$); a reference document (WHAT\_PHYSIS\_IS) does not
 that revisions of a single file form a low-dimensional directed trajectory,
 not a set of independent points. The trajectory is 2--3 dimensional,
 temporally directed (in 5/6 cases), and bounded (within-object distance
-4--14{\times} smaller than between-object).
+4--14$\times$ smaller than between-object).
 
 \textbf{The failure mode is informative.} \texttt{quality.rs} fails the
 direction test because it wanders and returns. This is the honest failure

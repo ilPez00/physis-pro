@@ -3,6 +3,7 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath}
+\usepackage{amssymb}  % \checkmark in the multiplicity table
 \usepackage{hyperref}
 \usepackage{natbib}
 \usepackage{caption}
@@ -44,8 +45,21 @@ scored on a fixed held-out test set, paired intervals --- the borrowed prior
 sits \emph{below} chance at every history size (0.483) and never contributes,
 while two training sessions of local history already reach 0.600 and beat the
 borrowed prior by $+0.114$. There is no regime in which borrowing helps,
-which is a stronger claim than the one we originally made. We report the
-negative result, and the anti-predictive result, as the primary findings.
+which is a stronger claim than the one we originally made. We then stress that
+result three ways. Repeating the partition 500 times confirms it (the borrowed
+prior is above chance in $4.2\%$ of partitions; the local prior beats it in
+$\geq 99\%$ from $N=3$). Generalising across all nine source$\to$target pairs
+\emph{partially refutes the global reading}: two pairs do benefit, in both
+directions (cline$\leftrightarrow$opencode, $0.665$ and $0.635$), so the
+partition result is a statement about the Claude Code target rather than about
+cross-harness transfer in general, and we report that refutation rather than
+suppress it. Finally, using the source prior charitably --- as shrinkage rather
+than as a replacement --- and comparing it against an equally-tuned shrinkage
+toward the target's \emph{own} global rate, the source advantage does not
+survive (median $+0.012$ at $N=1$, $-0.001$ at $N=30$). We report the
+pair-specific framing as a companion manuscript
+(\texttt{paper1b\_priors\_pair\_specific}) and present the global negative
+result, with the anti-predictive result, as primary here.
 \end{abstract}
 
 \section{Introduction}
@@ -416,6 +430,162 @@ Stored in \texttt{research/e1\_coldstart\_paired.json}. This experiment is
 what the original should have been: the defect was leakage, not the choice of
 arms, and the leakage is what produced both the apparent improvement and the
 apparent crossover.
+
+\subsection{Robustness to partition choice}
+\label{sec:partitions}
+
+The corrected cold-start experiment above rests on a single seeded $30/12$ split
+of the 42 Claude Code sessions, which measures uncertainty conditional on one
+partition. We therefore repeat the entire partition 500 times: shuffle the 42
+sessions, take 30 for training and 12 for test, sweep $N$ over the training pool
+only, and score every arm on the same held-out sessions. No test session enters
+any prior.
+
+\begin{table}[t]
+\centering
+\caption{500 repeated $30/12$ partitions, source OpenCode, target Claude Code.
+$\mathrm{A}{>}\mathrm{B}$ is the fraction of partitions in which the local prior
+beats the borrowed prior; $B{>}0.5$ the fraction in which the borrowed prior is
+above chance; $C{>}A$ the fraction in which mixing beats the local prior alone.
+Coverage is the mean fraction of test-set action kinds present in the prior.
+The requested global-base-rate and chance arms are the \emph{same} quantity --- a
+constant predictor has AUC exactly 0.5 --- so one is reported, not two.}
+\label{tab:partitions}
+\small
+\begin{tabular}{rrrrrrrr}
+\toprule
+$N$ & local & borrowed & mixed & $\mathrm{A}{>}\mathrm{B}$ & $B{>}0.5$ & $C{>}A$ & coverage \\
+\midrule
+ 1 & 0.545 & 0.469 & 0.529 & 0.916 & 0.042 & 0.234 & 0.17 \\
+ 2 & 0.581 & 0.469 & 0.568 & 0.986 & 0.042 & 0.290 & 0.25 \\
+ 3 & 0.595 & 0.469 & 0.582 & 0.992 & 0.042 & 0.290 & 0.29 \\
+ 5 & 0.612 & 0.469 & 0.595 & 1.000 & 0.042 & 0.262 & 0.36 \\
+10 & 0.628 & 0.469 & 0.614 & 1.000 & 0.042 & 0.246 & 0.44 \\
+15 & 0.636 & 0.469 & 0.627 & 1.000 & 0.042 & 0.314 & 0.49 \\
+20 & 0.639 & 0.469 & 0.637 & 1.000 & 0.042 & 0.438 & 0.53 \\
+25 & 0.642 & 0.469 & 0.643 & 1.000 & 0.042 & 0.554 & 0.55 \\
+30 & 0.644 & 0.469 & 0.646 & 1.000 & 0.042 & 0.604 & 0.56 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The result survives partition choice. The borrowed prior is above chance in
+$4.2\%$ of partitions, and that fraction is flat across $N$ because the borrowed
+prior is fixed within a partition --- it is a property of partitions, not of
+history size. The local prior beats it in $\geq 99\%$ of partitions from $N=3$
+and reliably ($\geq 95\%$) from $N=2$. Mixing never \emph{consistently} beats the
+local prior at any $N$ (maximum $60.4\%$ at $N=30$), so borrowed counts do not
+help even as an additive component. All numbers in
+Table~\ref{tab:partitions} are reproduced by
+\texttt{research/p1\_repeated\_splits.json}.
+
+\subsection{All source--target pairs}
+\label{sec:allpairs}
+
+The experiment above generalises one pair across partitions. This one
+generalises across pairs: every target large enough to support a $30/12$ split
+(Claude Code 42 sessions, Cline 69, OpenCode 288) against every source. Codex
+has 3 sessions, cannot support a learning curve, and is excluded as a
+\emph{target} while remaining a source. That gives 9 pairs $\times$ 200
+partitions $\times$ 9 values of $N$ = 16{,}200 cells.
+
+\begin{table}[t]
+\centering
+\caption{Maximum over $N$ of the fraction of partitions in which the borrowed
+prior is above chance, per source$\to$target pair (200 partitions each). Only
+two of the nine pairs rise above $0.45$.}
+\label{tab:allpairs}
+\small
+\begin{tabular}{lrrr}
+\toprule
+pair & borrowed $>0.5$ (max) & local $>$ borrowed (min) & mixing $>$ local (max) \\
+\midrule
+cline$\leftarrow$opencode   & \textbf{0.665} & 0.825 & 0.865 \\
+opencode$\leftarrow$cline   & \textbf{0.635} & 0.645 & 0.645 \\
+opencode$\leftarrow$claude-code & 0.450 & 0.735 & 0.555 \\
+cline$\leftarrow$claude-code & 0.325 & 0.900 & 0.775 \\
+claude-code$\leftarrow$codex & 0.225 & 0.835 & 0.905 \\
+opencode$\leftarrow$codex   & 0.190 & 0.875 & 0.515 \\
+claude-code$\leftarrow$cline & 0.095 & 0.885 & 0.670 \\
+cline$\leftarrow$codex      & 0.070 & 0.970 & 0.585 \\
+claude-code$\leftarrow$opencode & 0.050 & 0.890 & 0.650 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{This partially refutes the global reading of the negative result.}
+Two of the nine pairs do benefit from borrowing, and in both directions:
+cline$\leftarrow$opencode ($0.665$) and opencode$\leftarrow$cline ($0.635$).
+Those are the same two harnesses that the multiplicity analysis flags ---
+cline$\to$opencode is the only nominally-significant positive-direction
+transfer in the whole twelve-pair family. Section~\ref{sec:partitions} is
+therefore a statement about the Claude Code \emph{target}, not about
+cross-harness transfer in general.
+
+The tension with Section~\ref{sec:multiplicity} is real and we do not resolve it
+by preference. Under the correct inferential unit and family-wise correction,
+cline$\to$opencode does \emph{not} survive Holm (nominal $p = 0.0094$ against a
+threshold of $0.05/8 = 0.00625$). The two tests answer different questions: the
+multiplicity test asks whether a single AUC exceeds chance, while this
+experiment asks whether a \emph{classifier built from that prior} beats chance
+across partitions. A pair can fail the first and pass the second. Neither result
+alone is decisive, and the honest statement names the pair rather than
+generalising over pairs. Artifact:
+\texttt{research/p1\_all\_targets\_coldstart.json}.
+
+\subsection{Shrinkage prior: can cross-agent information be used at all?}
+\label{sec:shrinkage}
+
+Naive transfer substitutes source rates for target rates, which is a crude way
+to use another agent's data. A charitable use is \emph{shrinkage}: let the
+source prior regularise sparse target estimates rather than replace them,
+\begin{equation}
+\hat{p}_{\text{target}}(k) = \frac{\mathrm{fail}_{\text{local}}(k) + \lambda\,
+p_{\text{source}}(k)}{n_{\text{local}}(k) + \lambda},
+\end{equation}
+with $\lambda$ tuned on an inner fit/tune split of the \emph{training} pool
+only. This tests a stronger claim than ``naive transfer fails'': that
+cross-agent information contains no usable signal at all.
+
+The decisive control is not Laplace smoothing --- which shrinks toward $0.5$, a
+target the target's own base rate also beats --- but shrinking toward the
+\emph{source} rate versus shrinking toward the \emph{target's own} global rate,
+both with their own tuned $\lambda$, so the comparison is between two equally
+tuned estimators.
+
+\begin{table}[t]
+\centering
+\caption{Source-shrinkage minus target-global-shrinkage, equally tuned, over
+150 partitions per target. The source leads only in the first few sessions of
+local history and is behind by $N=30$.}
+\label{tab:shrinkage}
+\small
+\begin{tabular}{rrr}
+\toprule
+$N$ & median $\Delta$AUC & fraction of splits favouring source \\
+\midrule
+ 1 & $+0.012$ & 0.591 \\
+ 2 & $+0.006$ & 0.564 \\
+ 3 & $+0.004$ & 0.544 \\
+ 5 & $-0.0005$ & 0.489 \\
+10 & $-0.003$ & 0.433 \\
+20 & $-0.001$ & 0.427 \\
+30 & $-0.001$ & 0.427 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The source prior helps only marginally and only at $N=1$, and stops beating the
+target's own global rate between $N=3$ and $N=5$. Four independent runs (5, 15,
+40 and 150 partitions) agree on the direction, and the estimated advantage
+\emph{shrinks} as partitions increase ($+0.022 \to +0.020 \to +0.015 \to
++0.012$), which is what noise being averaged away looks like. The honest reading
+is that any effect is at most $\sim 0.01$ AUC and probably smaller, so it is
+reported as not excluded rather than as small but real.
+
+We therefore \emph{fail to kill} the strong claim: cross-agent information does
+not carry usable signal beyond what the target can supply about itself. Artifact:
+\texttt{research/p1\_shrinkage\_prior.json}.
 
 \section{Discussion}
 

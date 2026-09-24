@@ -10,15 +10,20 @@ for f in $PAPERS; do
     continue
   fi
   for _ in 1 2 3; do pdflatex -interaction=nonstopmode "$f.tex" >/dev/null 2>&1; done
+  errors=$(grep -c '^! ' "$f.log" 2>/dev/null || true)
   undef=$(grep -c 'Warning: Citation.*undefined\|Warning: Reference.*undefined\|There were undefined references' "$f.log" 2>/dev/null || true)
   qq=$(grep -c 'LaTeX Warning: Reference .* on page .* undefined' "$f.log" 2>/dev/null || true)
   navail=$(grep -c 'File .* not found' "$f.log" 2>/dev/null || true)
   pages=$(pdfinfo "$f.pdf" 2>/dev/null | awk '/^Pages/{print $2}')
   status=OK
-  if [ "${undef:-0}" != "0" ] || [ "${navail:-0}" != "0" ]; then status=FAIL; fail=1; fi
-  printf '%-32s pages=%-3s undefined=%-3s missingfile=%-3s %s\n' "$f" "${pages:-?}" "${undef:-?}" "${navail:-?}" "$status"
+  # LaTeX errors are hard failures too. Without the errors term this script
+  # printed "ALL PAPERS CLEAN" on a paper carrying 9 undefined control
+  # sequences, because it only ever counted undefined refs and missing files.
+  if [ "${errors:-0}" != "0" ] || [ "${undef:-0}" != "0" ] || [ "${navail:-0}" != "0" ]; then status=FAIL; fail=1; fi
+  if [ "${errors:-0}" != "0" ]; then status="LATEX-ERRORS($errors)"; fi
+  printf '%-32s pages=%-3s errors=%-3s undefined=%-3s missingfile=%-3s %s\n' "$f" "${pages:-?}" "${errors:-0}" "${undef:-?}" "${navail:-?}" "$status"
 done
-[ "$fail" = "0" ] && echo "ALL PAPERS CLEAN" || echo "BUILD HAS UNRESOLVED REFERENCES"
+[ "$fail" = "0" ] && echo "ALL PAPERS CLEAN (no errors, refs, or missing files)" || echo "BUILD HAS UNRESOLVED REFERENCES"
 
 # --- gates: a paper build is not "done" if a claim or a release artifact is dirty
 REPO="$(cd ../.. && pwd)"
