@@ -304,7 +304,7 @@ def main():
     print()
     for k, v in verdict.items():
         print(f"  {k}: {v}")
-    print(f"\nwrote {DEST}")
+    print(f"\nwrote {dest}")
 
 
 if __name__ == "__main__":
