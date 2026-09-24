@@ -2,7 +2,7 @@
 # Build all papers and report unresolved refs/citations. Fails loudly.
 set -u
 cd "$(dirname "$0")"
-PAPERS="paper1_agent_priors paper2_trajectories paper3_ontology_instability paper4_propose_certify paper9_dataset paper10_empedocles paperM_methodology"
+PAPERS="paper1_agent_priors paper1b_priors_pair_specific paper2_trajectories paper3_ontology_instability paper4_propose_certify paper9_dataset paper10_empedocles paperM_methodology"
 fail=0
 for f in $PAPERS; do
   if [ ! -f "$f.tex" ]; then
