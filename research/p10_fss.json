@@ -16,27 +16,27 @@
   "curves": [
     {
       "nodes": 100,
-      "seeds": 8,
+      "seeds": 16,
       "points": [
         {
           "nemesis": 0,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.52125,
-          "largest_std": 0.13516524278505498,
-          "n_clusters_mean": 3.375,
-          "chi_excl_mean": 10.77125,
-          "chi_excl_std": 4.13214035683342,
-          "second_largest_mean": 0.2575,
+          "n_seeds": 16,
+          "largest_mean": 0.5125,
+          "largest_std": 0.11509416434670641,
+          "n_clusters_mean": 3.125,
+          "chi_excl_mean": 12.645,
+          "chi_excl_std": 4.709236314591429,
+          "second_largest_mean": 0.28875000000000006,
           "regime_counts": {
-            "Critical": 6,
-            "Supercritical": 2
+            "Critical": 12,
+            "Supercritical": 4
           }
         },
         {
           "nemesis": 0.002,
           "nodes": 100,
-          "n_seeds": 8,
+          "n_seeds": 16,
           "largest_mean": 1.0,
           "largest_std": 0.0,
           "n_clusters_mean": 1.0,
@@ -44,13 +44,13 @@
           "chi_excl_std": 0.0,
           "second_largest_mean": 0.0,
           "regime_counts": {
-            "Supercritical": 8
+            "Supercritical": 16
           }
         },
         {
           "nemesis": 0.004,
           "nodes": 100,
-          "n_seeds": 8,
+          "n_seeds": 16,
           "largest_mean": 1.0,
           "largest_std": 0.0,
           "n_clusters_mean": 1.0,
@@ -58,162 +58,162 @@
           "chi_excl_std": 0.0,
           "second_largest_mean": 0.0,
           "regime_counts": {
-            "Supercritical": 8
+            "Supercritical": 16
           }
         },
         {
           "nemesis": 0.006,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.94875,
-          "largest_std": 0.03044315545875153,
-          "n_clusters_mean": 5.75,
-          "chi_excl_mean": 0.061250000000000006,
-          "chi_excl_std": 0.04323936698360485,
-          "second_largest_mean": 0.01375,
+          "n_seeds": 16,
+          "largest_mean": 0.953125,
+          "largest_std": 0.02868652413009749,
+          "n_clusters_mean": 5.5,
+          "chi_excl_mean": 0.051875,
+          "chi_excl_std": 0.03655475345286848,
+          "second_largest_mean": 0.011875,
           "regime_counts": {
-            "Supercritical": 8
+            "Supercritical": 16
           }
         },
         {
           "nemesis": 0.008,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.19624999999999998,
-          "largest_std": 0.05998511720180502,
-          "n_clusters_mean": 65.75,
-          "chi_excl_mean": 1.61875,
-          "chi_excl_std": 0.47456559083018235,
-          "second_largest_mean": 0.07125000000000001,
+          "n_seeds": 16,
+          "largest_mean": 0.205625,
+          "largest_std": 0.0584201734563213,
+          "n_clusters_mean": 64.6875,
+          "chi_excl_mean": 1.643125,
+          "chi_excl_std": 0.4646678921552468,
+          "second_largest_mean": 0.07375,
           "regime_counts": {
-            "Critical": 6,
-            "Subcritical": 2
+            "Critical": 12,
+            "Subcritical": 4
           }
         },
         {
           "nemesis": 0.01,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.018750000000000003,
-          "largest_std": 0.0035355339059327377,
-          "n_clusters_mean": 97.75,
-          "chi_excl_mean": 1.00875,
-          "chi_excl_std": 0.019594095320493166,
-          "second_largest_mean": 0.0175,
+          "n_seeds": 16,
+          "largest_mean": 0.02,
+          "largest_std": 0.0036514837167011074,
+          "n_clusters_mean": 97.4375,
+          "chi_excl_mean": 1.01125,
+          "chi_excl_std": 0.0196214168703486,
+          "second_largest_mean": 0.018125000000000002,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         },
         {
           "nemesis": 0.012,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.01625,
-          "largest_std": 0.005175491695067657,
-          "n_clusters_mean": 99.0,
-          "chi_excl_mean": 0.99125,
-          "chi_excl_std": 0.013562026818605388,
+          "n_seeds": 16,
+          "largest_mean": 0.016875,
+          "largest_std": 0.004787135538781691,
+          "n_clusters_mean": 98.875,
+          "chi_excl_mean": 0.9918750000000001,
+          "chi_excl_std": 0.015152007567755955,
           "second_largest_mean": 0.0125,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         },
         {
           "nemesis": 0.015,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.01375,
-          "largest_std": 0.005175491695067657,
-          "n_clusters_mean": 99.5,
-          "chi_excl_mean": 0.98875,
-          "chi_excl_std": 0.0064086994446165635,
+          "n_seeds": 16,
+          "largest_mean": 0.0125,
+          "largest_std": 0.00447213595499958,
+          "n_clusters_mean": 99.5625,
+          "chi_excl_mean": 0.99125,
+          "chi_excl_std": 0.008850612031567845,
           "second_largest_mean": 0.01125,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         },
         {
           "nemesis": 0.02,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.0125,
-          "largest_std": 0.004629100498862757,
-          "n_clusters_mean": 99.625,
-          "chi_excl_mean": 0.99,
-          "chi_excl_std": 0.005345224838248492,
-          "second_largest_mean": 0.01125,
+          "n_seeds": 16,
+          "largest_mean": 0.011875,
+          "largest_std": 0.004031128874149275,
+          "n_clusters_mean": 99.75,
+          "chi_excl_mean": 0.989375,
+          "chi_excl_std": 0.004425306015783922,
+          "second_largest_mean": 0.010624999999999999,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         },
         {
           "nemesis": 0.03,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.01375,
-          "largest_std": 0.005175491695067657,
-          "n_clusters_mean": 99.625,
-          "chi_excl_mean": 0.9862500000000001,
-          "chi_excl_std": 0.005175491695067661,
-          "second_largest_mean": 0.01,
+          "n_seeds": 16,
+          "largest_mean": 0.014374999999999999,
+          "largest_std": 0.0051234753829797995,
+          "n_clusters_mean": 99.5,
+          "chi_excl_mean": 0.986875,
+          "chi_excl_std": 0.006020797289396153,
+          "second_largest_mean": 0.010624999999999999,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         },
         {
           "nemesis": 0.05,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.01,
-          "largest_std": 0.0,
-          "n_clusters_mean": 100.0,
-          "chi_excl_mean": 0.99,
-          "chi_excl_std": 0.0,
+          "n_seeds": 16,
+          "largest_mean": 0.011875,
+          "largest_std": 0.004031128874149275,
+          "n_clusters_mean": 99.8125,
+          "chi_excl_mean": 0.988125,
+          "chi_excl_std": 0.004031128874149278,
           "second_largest_mean": 0.01,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         },
         {
           "nemesis": 0.08,
           "nodes": 100,
-          "n_seeds": 8,
-          "largest_mean": 0.0125,
-          "largest_std": 0.004629100498862757,
+          "n_seeds": 16,
+          "largest_mean": 0.013125000000000001,
+          "largest_std": 0.004787135538781691,
           "n_clusters_mean": 99.625,
-          "chi_excl_mean": 0.99,
-          "chi_excl_std": 0.005345224838248492,
-          "second_largest_mean": 0.01125,
+          "chi_excl_mean": 0.988125,
+          "chi_excl_std": 0.005439056290693578,
+          "second_largest_mean": 0.010624999999999999,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         }
       ],
-      "seconds": 3.1
+      "seconds": 5.1
     },
     {
       "nodes": 300,
-      "seeds": 8,
+      "seeds": 16,
       "points": [
         {
           "nemesis": 0,
           "nodes": 300,
-          "n_seeds": 8,
-          "largest_mean": 0.498333375,
-          "largest_std": 0.14342744474067465,
-          "n_clusters_mean": 3.25,
-          "chi_excl_mean": 37.92416666666667,
-          "chi_excl_std": 12.849599678774508,
-          "second_largest_mean": 0.30041666666666667,
+          "n_seeds": 16,
+          "largest_mean": 0.4877083750000001,
+          "largest_std": 0.10749486318509983,
+          "n_clusters_mean": 3.125,
+          "chi_excl_mean": 40.58354166666667,
+          "chi_excl_std": 11.333929884218023,
+          "second_largest_mean": 0.30208333333333337,
           "regime_counts": {
-            "Critical": 6,
+            "Critical": 14,
             "Supercritical": 2
           }
         },
         {
           "nemesis": 0.002,
           "nodes": 300,
-          "n_seeds": 8,
+          "n_seeds": 16,
           "largest_mean": 1.0,
           "largest_std": 0.0,
           "n_clusters_mean": 1.0,
@@ -221,13 +221,13 @@
           "chi_excl_std": 0.0,
           "second_largest_mean": 0.0,
           "regime_counts": {
-            "Supercritical": 8
+            "Supercritical": 16
           }
         },
         {
           "nemesis": 0.004,
           "nodes": 300,
-          "n_seeds": 8,
+          "n_seeds": 16,
           "largest_mean": 1.0,
           "largest_std": 0.0,
           "n_clusters_mean": 1.0,
@@ -235,162 +235,339 @@
           "chi_excl_std": 0.0,
           "second_largest_mean": 0.0,
           "regime_counts": {
-            "Supercritical": 8
+            "Supercritical": 16
           }
         },
         {
           "nemesis": 0.006,
           "nodes": 300,
-          "n_seeds": 8,
-          "largest_mean": 0.984999875,
-          "largest_std": 0.009595030133764938,
-          "n_clusters_mean": 5.5,
-          "chi_excl_mean": 0.015000000000000001,
-          "chi_excl_std": 0.00959497222838566,
-          "second_largest_mean": 0.0033333333333333335,
+          "n_seeds": 16,
+          "largest_mean": 0.9862499375,
+          "largest_std": 0.008766481836850717,
+          "n_clusters_mean": 5.0625,
+          "chi_excl_mean": 0.014166666666666666,
+          "chi_excl_std": 0.009388724521901159,
+          "second_largest_mean": 0.003333333333333333,
           "regime_counts": {
-            "Supercritical": 8
+            "Supercritical": 16
           }
         },
         {
           "nemesis": 0.008,
           "nodes": 300,
-          "n_seeds": 8,
-          "largest_mean": 0.741250125,
-          "largest_std": 0.029543435202318162,
-          "n_clusters_mean": 71.5,
-          "chi_excl_mean": 0.3370833333333333,
-          "chi_excl_std": 0.09792185903152818,
-          "second_largest_mean": 0.012499999999999999,
+          "n_seeds": 16,
+          "largest_mean": 0.7391667500000001,
+          "largest_std": 0.023428330429916117,
+          "n_clusters_mean": 69.5625,
+          "chi_excl_mean": 0.3729166666666667,
+          "chi_excl_std": 0.09389414843913924,
+          "second_largest_mean": 0.013749999999999998,
           "regime_counts": {
-            "Supercritical": 8
+            "Supercritical": 16
           }
         },
         {
           "nemesis": 0.01,
           "nodes": 300,
-          "n_seeds": 8,
-          "largest_mean": 0.32249975,
-          "largest_std": 0.06677976953442884,
-          "n_clusters_mean": 158.0,
-          "chi_excl_mean": 1.8658333333333332,
-          "chi_excl_std": 0.8839319624754579,
-          "second_largest_mean": 0.04041666666666667,
+          "n_seeds": 16,
+          "largest_mean": 0.346458125,
+          "largest_std": 0.06137285426622534,
+          "n_clusters_mean": 156.6875,
+          "chi_excl_mean": 1.5814583333333334,
+          "chi_excl_std": 0.713728829873498,
+          "second_largest_mean": 0.03729166666666667,
           "regime_counts": {
-            "Subcritical": 3,
-            "Critical": 5
-          }
-        },
-        {
-          "nemesis": 0.012,
-          "nodes": 300,
-          "n_seeds": 8,
-          "largest_mean": 0.06,
-          "largest_std": 0.019518025858896986,
-          "n_clusters_mean": 216.5,
-          "chi_excl_mean": 2.2825,
-          "chi_excl_std": 0.37954755855669675,
-          "second_largest_mean": 0.04083333333333333,
-          "regime_counts": {
+            "Subcritical": 8,
             "Critical": 8
           }
         },
         {
+          "nemesis": 0.012,
+          "nodes": 300,
+          "n_seeds": 16,
+          "largest_mean": 0.0625000625,
+          "largest_std": 0.022094121056572946,
+          "n_clusters_mean": 215.9375,
+          "chi_excl_mean": 2.2541666666666664,
+          "chi_excl_std": 0.3976514386578611,
+          "second_largest_mean": 0.03916666666666667,
+          "regime_counts": {
+            "Critical": 16
+          }
+        },
+        {
           "nemesis": 0.015,
           "nodes": 300,
-          "n_seeds": 8,
-          "largest_mean": 0.02291675,
-          "largest_std": 0.008986131294548123,
-          "n_clusters_mean": 262.625,
-          "chi_excl_mean": 1.2770833333333333,
-          "chi_excl_std": 0.03587622018277812,
-          "second_largest_mean": 0.01583333333333333,
+          "n_seeds": 16,
+          "largest_mean": 0.0222916875,
+          "largest_std": 0.007171743039817214,
+          "n_clusters_mean": 262.75,
+          "chi_excl_mean": 1.2714583333333334,
+          "chi_excl_std": 0.04534589286804265,
+          "second_largest_mean": 0.015208333333333334,
           "regime_counts": {
-            "Subcritical": 7,
-            "Critical": 1
+            "Subcritical": 13,
+            "Critical": 3
           }
         },
         {
           "nemesis": 0.02,
           "nodes": 300,
-          "n_seeds": 8,
-          "largest_mean": 0.009166750000000001,
-          "largest_std": 0.0023567869016947627,
-          "n_clusters_mean": 285.875,
-          "chi_excl_mean": 1.0766666666666667,
-          "chi_excl_std": 0.033428435761493805,
-          "second_largest_mean": 0.0075,
+          "n_seeds": 16,
+          "largest_mean": 0.009375125000000002,
+          "largest_std": 0.0027804509436420563,
+          "n_clusters_mean": 286.0,
+          "chi_excl_mean": 1.0760416666666668,
+          "chi_excl_std": 0.028524680671436247,
+          "second_largest_mean": 0.0077083333333333335,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         },
         {
           "nemesis": 0.03,
           "nodes": 300,
-          "n_seeds": 8,
-          "largest_mean": 0.00750025,
-          "largest_std": 0.0015428791962709572,
-          "n_clusters_mean": 292.25,
-          "chi_excl_mean": 1.0358333333333334,
-          "chi_excl_std": 0.019251880963555706,
+          "n_seeds": 16,
+          "largest_mean": 0.007083625,
+          "largest_std": 0.0011384362300981114,
+          "n_clusters_mean": 293.5,
+          "chi_excl_mean": 1.02875,
+          "chi_excl_std": 0.019771846801093847,
           "second_largest_mean": 0.006666666666666667,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         },
         {
           "nemesis": 0.05,
           "nodes": 300,
-          "n_seeds": 8,
-          "largest_mean": 0.007083625,
-          "largest_std": 0.0011783934508473814,
-          "n_clusters_mean": 296.125,
-          "chi_excl_mean": 1.01125,
-          "chi_excl_std": 0.00958462724184302,
-          "second_largest_mean": 0.006666666666666667,
+          "n_seeds": 16,
+          "largest_mean": 0.0072919375,
+          "largest_std": 0.0013435752537539532,
+          "n_clusters_mean": 296.3125,
+          "chi_excl_mean": 1.009375,
+          "chi_excl_std": 0.009445261402574468,
+          "second_largest_mean": 0.006458333333333333,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         },
         {
           "nemesis": 0.08,
           "nodes": 300,
-          "n_seeds": 8,
+          "n_seeds": 16,
           "largest_mean": 0.00750025,
-          "largest_std": 0.0015428791962709572,
-          "n_clusters_mean": 296.625,
-          "chi_excl_mean": 1.0066666666666668,
-          "chi_excl_std": 0.012724180205607056,
+          "largest_std": 0.0014905629138013598,
+          "n_clusters_mean": 296.6875,
+          "chi_excl_mean": 1.0062499999999999,
+          "chi_excl_std": 0.01166666666666669,
           "second_largest_mean": 0.005833333333333334,
           "regime_counts": {
-            "Subcritical": 8
+            "Subcritical": 16
           }
         }
       ],
-      "seconds": 25.6
+      "seconds": 43.7
     },
     {
       "nodes": 1000,
-      "seeds": 8,
+      "seeds": 16,
       "points": [
         {
           "nemesis": 0,
           "nodes": 1000,
-          "n_seeds": 8,
-          "largest_mean": 0.577375,
-          "largest_std": 0.13906929156770326,
+          "n_seeds": 16,
+          "largest_mean": 0.5615,
+          "largest_std": 0.13515176654413363,
           "n_clusters_mean": 2.875,
-          "chi_excl_mean": 103.621375,
-          "chi_excl_std": 43.10910865943199,
-          "second_largest_mean": 0.276,
+          "chi_excl_mean": 112.474625,
+          "chi_excl_std": 46.06224678537367,
+          "second_largest_mean": 0.285,
           "regime_counts": {
-            "Critical": 5,
-            "Supercritical": 3
+            "Critical": 11,
+            "Supercritical": 5
           }
         },
         {
           "nemesis": 0.002,
           "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 1.0,
+          "largest_std": 0.0,
+          "n_clusters_mean": 1.0,
+          "chi_excl_mean": 0.0,
+          "chi_excl_std": 0.0,
+          "second_largest_mean": 0.0,
+          "regime_counts": {
+            "Supercritical": 16
+          }
+        },
+        {
+          "nemesis": 0.004,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 1.0,
+          "largest_std": 0.0,
+          "n_clusters_mean": 1.0,
+          "chi_excl_mean": 0.0,
+          "chi_excl_std": 0.0,
+          "second_largest_mean": 0.0,
+          "regime_counts": {
+            "Supercritical": 16
+          }
+        },
+        {
+          "nemesis": 0.006,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 0.9968750000000001,
+          "largest_std": 0.0020615528128088323,
+          "n_clusters_mean": 4.125,
+          "chi_excl_mean": 0.003125,
+          "chi_excl_std": 0.00206155281280883,
+          "second_largest_mean": 0.0009375,
+          "regime_counts": {
+            "Supercritical": 16
+          }
+        },
+        {
+          "nemesis": 0.008,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 0.9190625000000001,
+          "largest_std": 0.00623397946740283,
+          "n_clusters_mean": 73.75,
+          "chi_excl_mean": 0.1054375,
+          "chi_excl_std": 0.026025548345167807,
+          "second_largest_mean": 0.0033125000000000003,
+          "regime_counts": {
+            "Supercritical": 16
+          }
+        },
+        {
+          "nemesis": 0.01,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 0.8006875,
+          "largest_std": 0.010587531975551857,
+          "n_clusters_mean": 172.4375,
+          "chi_excl_mean": 0.2954375,
+          "chi_excl_std": 0.045240054155582084,
+          "second_largest_mean": 0.0056875,
+          "regime_counts": {
+            "Supercritical": 16
+          }
+        },
+        {
+          "nemesis": 0.012,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 0.7045,
+          "largest_std": 0.01139590569751553,
+          "n_clusters_mean": 245.375,
+          "chi_excl_mean": 0.517375,
+          "chi_excl_std": 0.0868983122198968,
+          "second_largest_mean": 0.0084375,
+          "regime_counts": {
+            "Supercritical": 16
+          }
+        },
+        {
+          "nemesis": 0.015,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 0.6234999999999999,
+          "largest_std": 0.013094528119282,
+          "n_clusters_mean": 306.0,
+          "chi_excl_mean": 0.7053750000000001,
+          "chi_excl_std": 0.13736805790770043,
+          "second_largest_mean": 0.0093125,
+          "regime_counts": {
+            "Supercritical": 16
+          }
+        },
+        {
+          "nemesis": 0.02,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 0.5235000000000001,
+          "largest_std": 0.027657428176411005,
+          "n_clusters_mean": 378.75,
+          "chi_excl_mean": 0.974375,
+          "chi_excl_std": 0.27703522640030215,
+          "second_largest_mean": 0.010937500000000001,
+          "regime_counts": {
+            "Critical": 15,
+            "Subcritical": 1
+          }
+        },
+        {
+          "nemesis": 0.03,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 0.4225625,
+          "largest_std": 0.02925284886411351,
+          "n_clusters_mean": 445.625,
+          "chi_excl_mean": 1.2803125,
+          "chi_excl_std": 0.2427140206772846,
+          "second_largest_mean": 0.0126875,
+          "regime_counts": {
+            "Critical": 16
+          }
+        },
+        {
+          "nemesis": 0.05,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 0.32875,
+          "largest_std": 0.030764698384132854,
+          "n_clusters_mean": 503.6875,
+          "chi_excl_mean": 1.7493750000000001,
+          "chi_excl_std": 0.3906336519041851,
+          "second_largest_mean": 0.0165,
+          "regime_counts": {
+            "Critical": 16
+          }
+        },
+        {
+          "nemesis": 0.08,
+          "nodes": 1000,
+          "n_seeds": 16,
+          "largest_mean": 0.2945,
+          "largest_std": 0.02387188024992306,
+          "n_clusters_mean": 532.125,
+          "chi_excl_mean": 1.682625,
+          "chi_excl_std": 0.30582192530948465,
+          "second_largest_mean": 0.014812500000000001,
+          "regime_counts": {
+            "Critical": 16
+          }
+        }
+      ],
+      "seconds": 460.7
+    },
+    {
+      "nodes": 3000,
+      "seeds": 8,
+      "points": [
+        {
+          "nemesis": 0,
+          "nodes": 3000,
+          "n_seeds": 8,
+          "largest_mean": 0.5467500000000001,
+          "largest_std": 0.13889000546887045,
+          "n_clusters_mean": 2.75,
+          "chi_excl_mean": 399.95983333333334,
+          "chi_excl_std": 179.62763037656097,
+          "second_largest_mean": 0.31037499999999996,
+          "regime_counts": {
+            "Critical": 7,
+            "Supercritical": 1
+          }
+        },
+        {
+          "nemesis": 0.002,
+          "nodes": 3000,
           "n_seeds": 8,
           "largest_mean": 1.0,
           "largest_std": 0.0,
@@ -404,7 +581,7 @@
         },
         {
           "nemesis": 0.004,
-          "nodes": 1000,
+          "nodes": 3000,
           "n_seeds": 8,
           "largest_mean": 1.0,
           "largest_std": 0.0,
@@ -418,132 +595,132 @@
         },
         {
           "nemesis": 0.006,
-          "nodes": 1000,
+          "nodes": 3000,
           "n_seeds": 8,
-          "largest_mean": 0.99675,
-          "largest_std": 0.0021876275473019383,
-          "n_clusters_mean": 4.25,
-          "chi_excl_mean": 0.0032500000000000003,
-          "chi_excl_std": 0.0021876275473019366,
+          "largest_mean": 0.999750125,
+          "largest_std": 0.00023571922613870088,
+          "n_clusters_mean": 1.75,
+          "chi_excl_mean": 0.00025,
+          "chi_excl_std": 0.00023570226039551582,
+          "second_largest_mean": 0.00020833333333333332,
+          "regime_counts": {
+            "Supercritical": 8
+          }
+        },
+        {
+          "nemesis": 0.008,
+          "nodes": 3000,
+          "n_seeds": 8,
+          "largest_mean": 0.9765001249999999,
+          "largest_std": 0.0019436792384914892,
+          "n_clusters_mean": 65.875,
+          "chi_excl_mean": 0.028666666666666667,
+          "chi_excl_std": 0.004357077803313476,
           "second_largest_mean": 0.001,
           "regime_counts": {
             "Supercritical": 8
           }
         },
         {
-          "nemesis": 0.008,
-          "nodes": 1000,
-          "n_seeds": 8,
-          "largest_mean": 0.917,
-          "largest_std": 0.00545108115095398,
-          "n_clusters_mean": 75.0,
-          "chi_excl_mean": 0.11075,
-          "chi_excl_std": 0.026119232104223237,
-          "second_largest_mean": 0.003375,
-          "regime_counts": {
-            "Supercritical": 8
-          }
-        },
-        {
           "nemesis": 0.01,
-          "nodes": 1000,
+          "nodes": 3000,
           "n_seeds": 8,
-          "largest_mean": 0.8003750000000001,
-          "largest_std": 0.009723866074179117,
-          "n_clusters_mean": 175.25,
-          "chi_excl_mean": 0.289375,
-          "chi_excl_std": 0.03913324308418246,
-          "second_largest_mean": 0.00575,
+          "largest_mean": 0.93570825,
+          "largest_std": 0.002207086363123487,
+          "n_clusters_mean": 171.75,
+          "chi_excl_mean": 0.08629166666666667,
+          "chi_excl_std": 0.008968087159566821,
+          "second_largest_mean": 0.0014583333333333332,
           "regime_counts": {
             "Supercritical": 8
           }
         },
         {
           "nemesis": 0.012,
-          "nodes": 1000,
+          "nodes": 3000,
           "n_seeds": 8,
-          "largest_mean": 0.7057499999999999,
-          "largest_std": 0.01165884091273964,
-          "n_clusters_mean": 244.0,
-          "chi_excl_mean": 0.504,
-          "chi_excl_std": 0.05394176754347492,
-          "second_largest_mean": 0.00825,
+          "largest_mean": 0.9058335,
+          "largest_std": 0.004790904090043962,
+          "n_clusters_mean": 246.875,
+          "chi_excl_mean": 0.13708333333333333,
+          "chi_excl_std": 0.02534820991769924,
+          "second_largest_mean": 0.0019166666666666668,
           "regime_counts": {
             "Supercritical": 8
           }
         },
         {
           "nemesis": 0.015,
-          "nodes": 1000,
+          "nodes": 3000,
           "n_seeds": 8,
-          "largest_mean": 0.62775,
-          "largest_std": 0.01524795068197692,
-          "n_clusters_mean": 306.25,
-          "chi_excl_mean": 0.661,
-          "chi_excl_std": 0.1413384994563457,
-          "second_largest_mean": 0.008375,
+          "largest_mean": 0.875625,
+          "largest_std": 0.005805026565707631,
+          "n_clusters_mean": 314.25,
+          "chi_excl_mean": 0.20970833333333333,
+          "chi_excl_std": 0.04713285427789148,
+          "second_largest_mean": 0.002875,
           "regime_counts": {
             "Supercritical": 8
           }
         },
         {
           "nemesis": 0.02,
-          "nodes": 1000,
+          "nodes": 3000,
           "n_seeds": 8,
-          "largest_mean": 0.5315000000000001,
-          "largest_std": 0.007855844048495734,
-          "n_clusters_mean": 374.5,
-          "chi_excl_mean": 0.87575,
-          "chi_excl_std": 0.06759702022173124,
-          "second_largest_mean": 0.009000000000000001,
+          "largest_mean": 0.840333375,
+          "largest_std": 0.007988145984385677,
+          "n_clusters_mean": 386.75,
+          "chi_excl_mean": 0.2925,
+          "chi_excl_std": 0.07665486451601264,
+          "second_largest_mean": 0.0031666666666666666,
           "regime_counts": {
-            "Critical": 8
+            "Supercritical": 8
           }
         },
         {
           "nemesis": 0.03,
-          "nodes": 1000,
+          "nodes": 3000,
           "n_seeds": 8,
-          "largest_mean": 0.413875,
-          "largest_std": 0.03549823939296146,
-          "n_clusters_mean": 449.25,
-          "chi_excl_mean": 1.338875,
-          "chi_excl_std": 0.2456486675256816,
-          "second_largest_mean": 0.01325,
+          "largest_mean": 0.804333375,
+          "largest_std": 0.0074063422037660065,
+          "n_clusters_mean": 465.0,
+          "chi_excl_mean": 0.36150000000000004,
+          "chi_excl_std": 0.03568602056116742,
+          "second_largest_mean": 0.003,
           "regime_counts": {
-            "Critical": 8
+            "Supercritical": 8
           }
         },
         {
           "nemesis": 0.05,
-          "nodes": 1000,
+          "nodes": 3000,
           "n_seeds": 8,
-          "largest_mean": 0.3255,
-          "largest_std": 0.039992856504988135,
-          "n_clusters_mean": 505.625,
-          "chi_excl_mean": 1.8367499999999999,
-          "chi_excl_std": 0.4922463813985838,
-          "second_largest_mean": 0.018625000000000003,
+          "largest_mean": 0.776250125,
+          "largest_std": 0.007276201156362937,
+          "n_clusters_mean": 521.5,
+          "chi_excl_mean": 0.42966666666666664,
+          "chi_excl_std": 0.061394379557658536,
+          "second_largest_mean": 0.0032916666666666667,
           "regime_counts": {
-            "Critical": 8
+            "Supercritical": 8
           }
         },
         {
           "nemesis": 0.08,
-          "nodes": 1000,
+          "nodes": 3000,
           "n_seeds": 8,
-          "largest_mean": 0.307875,
-          "largest_std": 0.017715509750337012,
-          "n_clusters_mean": 529.125,
-          "chi_excl_mean": 1.527375,
-          "chi_excl_std": 0.22455603023362725,
-          "second_largest_mean": 0.014,
+          "largest_mean": 0.759833375,
+          "largest_std": 0.007825529045328869,
+          "n_clusters_mean": 555.125,
+          "chi_excl_mean": 0.50675,
+          "chi_excl_std": 0.06774784012254442,
+          "second_largest_mean": 0.004416666666666667,
           "regime_counts": {
-            "Critical": 8
+            "Supercritical": 8
           }
         }
       ],
-      "seconds": 252.1
+      "seconds": 1214.5
     }
   ],
   "diagnostics": {
@@ -551,34 +728,44 @@
       {
         "nodes": 100,
         "nemesis_at_peak": 0,
-        "chi_peak": 10.77125,
-        "largest_at_peak": 0.52125
+        "chi_peak": 12.645,
+        "largest_at_peak": 0.5125
       },
       {
         "nodes": 300,
         "nemesis_at_peak": 0,
-        "chi_peak": 37.92416666666667,
-        "largest_at_peak": 0.498333375
+        "chi_peak": 40.58354166666667,
+        "largest_at_peak": 0.4877083750000001
       },
       {
         "nodes": 1000,
         "nemesis_at_peak": 0,
-        "chi_peak": 103.621375,
-        "largest_at_peak": 0.577375
+        "chi_peak": 112.474625,
+        "largest_at_peak": 0.5615
+      },
+      {
+        "nodes": 3000,
+        "nemesis_at_peak": 0,
+        "chi_peak": 399.95983333333334,
+        "largest_at_peak": 0.5467500000000001
       }
     ],
     "largest_half_crossing_by_N": [
       {
         "nodes": 100,
-        "nemesis_at_half": 0.007192691029900332
+        "nemesis_at_half": 0.007212374581939799
       },
       {
         "nodes": 300,
-        "nemesis_at_half": 6.644352711324887e-06
+        "nemesis_at_half": 4.7986827815113784e-05
       },
       {
         "nodes": 1000,
-        "nemesis_at_half": 0.022678002125398517
+        "nemesis_at_half": 0.02232817337461301
+      },
+      {
+        "nodes": 3000,
+        "nemesis_at_half": null
       }
     ],
     "transition_width_by_N": [
@@ -593,26 +780,34 @@
       {
         "nodes": 1000,
         "width": 0.08
+      },
+      {
+        "nodes": 3000,
+        "width": 0.08
       }
     ],
     "chi_peak_at_sweep_boundary": true,
     "chi_over_N_by_N": [
       {
         "nodes": 100,
-        "chi_over_N": 0.1077125
+        "chi_over_N": 0.12645
       },
       {
         "nodes": 300,
-        "chi_over_N": 0.1264138888888889
+        "chi_over_N": 0.13527847222222222
       },
       {
         "nodes": 1000,
-        "chi_over_N": 0.103621375
+        "chi_over_N": 0.11247462500000001
+      },
+      {
+        "nodes": 3000,
+        "chi_over_N": 0.13331994444444445
       }
     ],
-    "chi_peak_loglog_slope_vs_N": 0.980819161875171,
+    "chi_peak_loglog_slope_vs_N": 0.9967488211816492,
     "classification": "NO TRANSITION LOCATED: chi peaks at the edge of the nemesis grid at every node count, so no critical point was found inside the sweep and no scaling can be read from it",
-    "transition_width_loglog_slope_vs_N": 1.011590252513338,
+    "transition_width_loglog_slope_vs_N": 0.793929964901132,
     "note": "A tuned transition is not self-organized criticality: SOC requires the system to reach the critical point without an external control parameter, and nemesis_strength is one."
   },
   "binary": "target/release/examples/empedocles_multiseed",
