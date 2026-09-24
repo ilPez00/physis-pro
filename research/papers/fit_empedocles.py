@@ -23,8 +23,6 @@ from scipy.special import zeta
 from scipy.stats import lognorm, norm
 
 REPO = "/home/gio/dev/physis-pro"
-src = sys.argv[1] if len(sys.argv) > 1 else f"{REPO}/research/empedocles_multiseed.json"
-runs = json.load(open(src))
 
 
 def pl_loglik(data, alpha, xmin):
@@ -75,33 +73,20 @@ def vuong(data, alpha, xmin, ln_params):
     return R, p
 
 
-results = {"source": os.path.basename(src), "settings": {}}
+def fit_sample(sizes):
+    """Run the full pipeline on one sample of cluster sizes.
 
-by_nem = {}
-for r in runs:
-    by_nem.setdefault(r["nemesis"], []).append(r)
-
-print(f"{'nemesis':>8s} {'runs':>5s} {'n_clusters':>11s} {'xmin':>5s} {'alpha':>7s} "
-      f"{'KS':>6s} {'R':>9s} {'p':>8s}  verdict")
-print("-" * 78)
-
-for nem in sorted(by_nem):
-    runs_n = by_nem[nem]
-    sizes = np.array([s for r in runs_n for s in r["sizes"] if s > 0], dtype=float)
-    largest = np.mean([r["largest"] for r in runs_n])
-    regimes = {r["regime"] for r in runs_n}
-    entry = {
-        "n_runs": len(runs_n), "n_clusters": int(len(sizes)),
-        "mean_largest": float(largest), "regimes": sorted(regimes),
-    }
+    Extracted so that control systems can be pushed through byte-identical
+    code rather than a reimplementation. A control that runs a *different*
+    pipeline proves nothing about the instrument that produced the Empedocles
+    result.
+    """
+    entry: dict = {"n_clusters": int(len(sizes))}
     if len(sizes) < 50:
         entry["fit"] = None
         entry["note"] = "too few clusters to fit"
-        print(f"{nem:>8.3f} {len(runs_n):>5d} {len(sizes):>11d}  — too few clusters")
-        results["settings"][f"{nem}"] = entry
-        continue
+        return entry, "too few clusters"
 
-    # choose xmin by minimising KS
     best = None
     for xmin in sorted(set(sizes)):
         if xmin < 2:
@@ -114,8 +99,8 @@ for nem in sorted(by_nem):
             best = (xmin, alpha, d)
     if best is None:
         entry["fit"] = None
-        results["settings"][f"{nem}"] = entry
-        continue
+        entry["note"] = "no xmin with a fittable tail"
+        return entry, "unfittable"
 
     xmin, alpha, ks = best
     tail = sizes[sizes >= xmin]
@@ -140,13 +125,47 @@ for nem in sorted(by_nem):
                     "verdict": verdict}
     if ln_params is not None:
         entry["fit"]["lognormal_shape"] = float(ln_params[0])
-    results["settings"][f"{nem}"] = entry
+    return entry, verdict
 
-    r_txt = "—" if R is None else f"{round(R, 1)}"
-    p_txt = "—" if p is None else f"{round(p, 4)}"
-    print(f"{nem:>8.3f} {len(runs_n):>5d} {len(sizes):>11d} {int(xmin):>5d} {alpha:>7.3f} "
-          f"{ks:>6.3f} {r_txt:>9} {p_txt:>8}  {verdict}")
 
-dest = f"{REPO}/research/empedocles_fits.json"
-json.dump(results, open(dest, "w"), indent=2)
-print(f"\nwrote {dest}")
+def main():
+    src = (sys.argv[1] if len(sys.argv) > 1
+           else f"{REPO}/research/empedocles_multiseed.json")
+    runs = json.load(open(src))
+    results = {"source": os.path.basename(src), "settings": {}}
+
+    by_nem = {}
+    for r in runs:
+        by_nem.setdefault(r["nemesis"], []).append(r)
+
+    print(f"{'nemesis':>8s} {'runs':>5s} {'n_clusters':>11s} {'xmin':>5s} "
+          f"{'alpha':>7s} {'KS':>6s} {'R':>9s} {'p':>8s}  verdict")
+    print("-" * 78)
+
+    for nem in sorted(by_nem):
+        runs_n = by_nem[nem]
+        sizes = np.array([s for r in runs_n for s in r["sizes"] if s > 0],
+                         dtype=float)
+        largest = np.mean([r["largest"] for r in runs_n])
+        entry, verdict = fit_sample(sizes)
+        entry["n_runs"] = len(runs_n)
+        entry["mean_largest"] = float(largest)
+        entry["regimes"] = sorted({r["regime"] for r in runs_n})
+        results["settings"][f"{nem}"] = entry
+
+        f = entry.get("fit")
+        if not f:
+            print(f"{nem:>8.3f} {len(runs_n):>5d} {len(sizes):>11d}  — {verdict}")
+            continue
+        r_txt = "—" if f["vuong_R"] is None else f"{round(f['vuong_R'], 1)}"
+        p_txt = "—" if f["vuong_p"] is None else f"{round(f['vuong_p'], 4)}"
+        print(f"{nem:>8.3f} {len(runs_n):>5d} {len(sizes):>11d} {f['xmin']:>5d} "
+              f"{f['alpha']:>7.3f} {f['ks']:>6.3f} {r_txt:>9} {p_txt:>8}  {verdict}")
+
+    dest = f"{REPO}/research/empedocles_fits.json"
+    json.dump(results, open(dest, "w"), indent=2)
+    print(f"\nwrote {dest}")
+
+
+if __name__ == "__main__":
+    main()

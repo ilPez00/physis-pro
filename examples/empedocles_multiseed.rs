@@ -17,15 +17,41 @@ const LINK_DIST: f32 = 0.15;
 const EROS: f32 = 0.10;
 const NEMESIS: [f32; 9] = [0.0, 0.001, 0.003, 0.006, 0.01, 0.02, 0.04, 0.08, 0.16];
 
+/// Finite-size scaling needs the node count to vary, and a transition study
+/// needs a denser sweep than the nine published points. Both are read from the
+/// environment so the defaults above -- and therefore the output format that
+/// `fit_empedocles.py` parses -- are unchanged.
+///
+///   PHYSIS_EMPEDOCLES_NODES=1000 PHYSIS_EMPEDOCLES_NEMESIS=0.004,0.006,0.008 \
+///     cargo run --release --example empedocles_multiseed -- 16
+fn env_usize(key: &str, default: usize) -> usize {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(default)
+}
+
+fn env_f32_list(key: &str, default: &[f32]) -> Vec<f32> {
+    match std::env::var(key) {
+        Ok(v) if !v.trim().is_empty() => v
+            .split(',')
+            .filter_map(|s| s.trim().parse::<f32>().ok())
+            .collect(),
+        _ => default.to_vec(),
+    }
+}
+
 fn main() {
     let seeds: u64 = std::env::args()
         .nth(1)
         .and_then(|s| s.parse().ok())
         .unwrap_or(16);
+    let nodes = env_usize("PHYSIS_EMPEDOCLES_NODES", NODES);
+    let nemesis_list = env_f32_list("PHYSIS_EMPEDOCLES_NEMESIS", &NEMESIS);
 
     println!("[");
     let mut first_run = true;
-    for &nemesis in &NEMESIS {
+    for &nemesis in &nemesis_list {
         let cfg = DyadConfig {
             eros_radius: 0.30,
             eros_strength: EROS,
@@ -38,7 +64,7 @@ fn main() {
             ..Default::default()
         };
         for seed in 0..seeds {
-            let mut field = NodeField::seed_uniform(NODES, DIMS, cfg.clone(), seed as u64);
+            let mut field = NodeField::seed_uniform(nodes, DIMS, cfg.clone(), seed as u64);
             for _ in 0..TICKS {
                 field.step();
             }

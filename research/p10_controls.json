@@ -1,0 +1,1078 @@
+{
+  "control_results": [
+    {
+      "control": "positive_branching_critical",
+      "n_seeds": 12,
+      "frac_power_law_wins": 1.0,
+      "n_power_law_wins": 12,
+      "frac_lognormal_wins": 0.0,
+      "median_alpha": 1.4967932931955383,
+      "alpha_iqr": [
+        1.4859741718832098,
+        1.5177569586633997
+      ],
+      "median_xmin": 37.0,
+      "n_clusters_median": 6000,
+      "seeds": [
+        {
+          "seed": 0,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 22,
+          "alpha": 1.5036653673052398,
+          "ks": 0.022996590743515344,
+          "vuong_R": 375.8078513173561,
+          "vuong_p": 1.1924670065213157e-55,
+          "seconds": 0.1
+        },
+        {
+          "seed": 1,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 26,
+          "alpha": 1.4848863653127875,
+          "ks": 0.01564953627173432,
+          "vuong_R": 347.70166502637574,
+          "vuong_p": 7.034207002651253e-63,
+          "seconds": 0.1
+        },
+        {
+          "seed": 2,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 117,
+          "alpha": 1.5370604642502028,
+          "ks": 0.021672718392733326,
+          "vuong_R": 170.72895240473355,
+          "vuong_p": 7.377924454530806e-30,
+          "seconds": 0.1
+        },
+        {
+          "seed": 3,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 32,
+          "alpha": 1.4892234853203155,
+          "ks": 0.014778880849050047,
+          "vuong_R": 345.6467780016651,
+          "vuong_p": 8.581750895285945e-61,
+          "seconds": 0.1
+        },
+        {
+          "seed": 4,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 90,
+          "alpha": 1.5584371983214533,
+          "ks": 0.0197059641731889,
+          "vuong_R": 204.1390882263721,
+          "vuong_p": 3.9753427823275375e-36,
+          "seconds": 0.1
+        },
+        {
+          "seed": 5,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 16,
+          "alpha": 1.4833683296393854,
+          "ks": 0.02158706681402922,
+          "vuong_R": 471.5113567977147,
+          "vuong_p": 6.892222742512861e-75,
+          "seconds": 0.1
+        },
+        {
+          "seed": 6,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 103,
+          "alpha": 1.5123522979255626,
+          "ks": 0.020582671164383837,
+          "vuong_R": 174.12543205685256,
+          "vuong_p": 1.3535404520937147e-35,
+          "seconds": 0.1
+        },
+        {
+          "seed": 7,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 143,
+          "alpha": 1.5339709408769113,
+          "ks": 0.02084026171293385,
+          "vuong_R": 144.6135339137757,
+          "vuong_p": 1.931269967909346e-28,
+          "seconds": 0.1
+        },
+        {
+          "seed": 8,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 31,
+          "alpha": 1.4863367740733506,
+          "ks": 0.018735170145763314,
+          "vuong_R": 322.16702783694683,
+          "vuong_p": 1.5542077304528726e-53,
+          "seconds": 0.1
+        },
+        {
+          "seed": 9,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 26,
+          "alpha": 1.489921219085837,
+          "ks": 0.018795650592040025,
+          "vuong_R": 374.31061355786585,
+          "vuong_p": 4.2097728553260034e-66,
+          "seconds": 0.1
+        },
+        {
+          "seed": 10,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 76,
+          "alpha": 1.4700512011148044,
+          "ks": 0.02569372406007897,
+          "vuong_R": 182.91822123278808,
+          "vuong_p": 5.082612018337322e-35,
+          "seconds": 0.1
+        },
+        {
+          "seed": 11,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 42,
+          "alpha": 1.508522599590743,
+          "ks": 0.01555404961691538,
+          "vuong_R": 270.1097472769465,
+          "vuong_p": 3.3213759845826924e-42,
+          "seconds": 0.2
+        }
+      ],
+      "expected_alpha": 1.5,
+      "expectation": "mean-field progeny exponent"
+    },
+    {
+      "control": "positive_percolation_2d_pc",
+      "n_seeds": 12,
+      "frac_power_law_wins": 0.8333333333333334,
+      "n_power_law_wins": 10,
+      "frac_lognormal_wins": 0.0,
+      "median_alpha": 1.8074781261292876,
+      "alpha_iqr": [
+        1.7606519575706894,
+        1.871162190004614
+      ],
+      "median_xmin": 17.5,
+      "n_clusters_median": 764,
+      "seeds": [
+        {
+          "seed": 0,
+          "n_clusters": 714,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 8,
+          "alpha": 1.8474551458629824,
+          "ks": 0.08018854627637961,
+          "vuong_R": 37.78930158043159,
+          "vuong_p": 2.7653407244158546e-05,
+          "seconds": 0.0
+        },
+        {
+          "seed": 1,
+          "n_clusters": 781,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 16,
+          "alpha": 1.8986336593644464,
+          "ks": 0.07876811825222607,
+          "vuong_R": 27.506950087309434,
+          "vuong_p": 1.5215423368715929e-06,
+          "seconds": 0.0
+        },
+        {
+          "seed": 2,
+          "n_clusters": 767,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 14,
+          "alpha": 1.821869207099796,
+          "ks": 0.0512403939742625,
+          "vuong_R": 25.017400488584144,
+          "vuong_p": 0.00044745359389448616,
+          "seconds": 0.0
+        },
+        {
+          "seed": 3,
+          "n_clusters": 827,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 25,
+          "alpha": 2.1075228688221888,
+          "ks": 0.05343066724209056,
+          "vuong_R": 25.357405474362473,
+          "vuong_p": 0.005831380453015984,
+          "seconds": 0.0
+        },
+        {
+          "seed": 4,
+          "n_clusters": 731,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 19,
+          "alpha": 1.78292273166378,
+          "ks": 0.04855775882010793,
+          "vuong_R": 14.436301807205222,
+          "vuong_p": 0.006400532030419057,
+          "seconds": 0.0
+        },
+        {
+          "seed": 5,
+          "n_clusters": 762,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 9,
+          "alpha": 1.7930870451587793,
+          "ks": 0.07748456603915332,
+          "vuong_R": 39.50373893459121,
+          "vuong_p": 8.740047874318784e-10,
+          "seconds": 0.0
+        },
+        {
+          "seed": 6,
+          "n_clusters": 790,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 13,
+          "alpha": 1.6641997139572207,
+          "ks": 0.05775025378888288,
+          "vuong_R": 20.85305412401309,
+          "vuong_p": 2.6847131806432917e-05,
+          "seconds": 0.0
+        },
+        {
+          "seed": 7,
+          "n_clusters": 743,
+          "verdict": "no difference (indistinguishable)",
+          "xmin": 61,
+          "alpha": 1.6279859282585822,
+          "ks": 0.06666666666666667,
+          "vuong_R": 3.183999060129615,
+          "vuong_p": 0.20505156632127763,
+          "seconds": 0.0
+        },
+        {
+          "seed": 8,
+          "n_clusters": 850,
+          "verdict": "no difference (indistinguishable)",
+          "xmin": 85,
+          "alpha": 1.8727283717669208,
+          "ks": 0.06257584290260199,
+          "vuong_R": 5.760009074358849,
+          "vuong_p": 0.07417125888951857,
+          "seconds": 0.0
+        },
+        {
+          "seed": 9,
+          "n_clusters": 807,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 42,
+          "alpha": 1.6938396352914176,
+          "ks": 0.07519027260849098,
+          "vuong_R": 7.508425701952447,
+          "vuong_p": 0.014833625369640531,
+          "seconds": 0.0
+        },
+        {
+          "seed": 10,
+          "n_clusters": 739,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 19,
+          "alpha": 1.8706401294171784,
+          "ks": 0.06461364997247843,
+          "vuong_R": 20.26088776580488,
+          "vuong_p": 0.0004293518440289266,
+          "seconds": 0.0
+        },
+        {
+          "seed": 11,
+          "n_clusters": 745,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 11,
+          "alpha": 1.7845253262106522,
+          "ks": 0.05182433923934182,
+          "vuong_R": 37.80467575862869,
+          "vuong_p": 9.715729857152958e-09,
+          "seconds": 0.0
+        }
+      ],
+      "expected_alpha": 2.055,
+      "expectation": "2D site percolation tau = 187/91"
+    },
+    {
+      "control": "negative_branching_subcritical",
+      "n_seeds": 12,
+      "frac_power_law_wins": 0.75,
+      "n_power_law_wins": 9,
+      "frac_lognormal_wins": 0.0,
+      "median_alpha": 3.7582800413588333,
+      "alpha_iqr": [
+        3.612802953477607,
+        4.135174293889449
+      ],
+      "median_xmin": 23.5,
+      "n_clusters_median": 6000,
+      "seeds": [
+        {
+          "seed": 0,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 19,
+          "alpha": 3.637507523269269,
+          "ks": 0.07706387271861315,
+          "vuong_R": 20.11563913173869,
+          "vuong_p": 0.039641094904024725,
+          "seconds": 0.0
+        },
+        {
+          "seed": 1,
+          "n_clusters": 6000,
+          "verdict": "no difference (indistinguishable)",
+          "xmin": 26,
+          "alpha": 4.392217585372558,
+          "ks": 0.09573824650535534,
+          "vuong_R": 5.57518536176288,
+          "vuong_p": 0.3274214543827122,
+          "seconds": 0.0
+        },
+        {
+          "seed": 2,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 29,
+          "alpha": 4.0026070530691324,
+          "ks": 0.07142857142857142,
+          "vuong_R": 13.032849160710237,
+          "vuong_p": 0.0019283635283818032,
+          "seconds": 0.0
+        },
+        {
+          "seed": 3,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 24,
+          "alpha": 4.049493196728413,
+          "ks": 0.0821917808219178,
+          "vuong_R": 14.207430626080065,
+          "vuong_p": 0.012460874286710987,
+          "seconds": 0.0
+        },
+        {
+          "seed": 4,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 18,
+          "alpha": 3.6417295742036253,
+          "ks": 0.0784313725490196,
+          "vuong_R": 28.470336901570995,
+          "vuong_p": 0.00013546108108467676,
+          "seconds": 0.0
+        },
+        {
+          "seed": 5,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 16,
+          "alpha": 3.536121889049682,
+          "ks": 0.08888888888888889,
+          "vuong_R": 34.79286019479213,
+          "vuong_p": 0.0002381296269830154,
+          "seconds": 0.0
+        },
+        {
+          "seed": 6,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 19,
+          "alpha": 3.417069491383653,
+          "ks": 0.08064516129032258,
+          "vuong_R": 22.73316171736839,
+          "vuong_p": 0.009728504952157453,
+          "seconds": 0.0
+        },
+        {
+          "seed": 7,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 23,
+          "alpha": 3.7241236274524057,
+          "ks": 0.08196721311475409,
+          "vuong_R": 16.7099861472548,
+          "vuong_p": 0.01033277491875802,
+          "seconds": 0.0
+        },
+        {
+          "seed": 8,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 26,
+          "alpha": 3.792436455265261,
+          "ks": 0.06840596277552088,
+          "vuong_R": 13.810999720723377,
+          "vuong_p": 0.012490358579088812,
+          "seconds": 0.0
+        },
+        {
+          "seed": 9,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 19,
+          "alpha": 3.53868924410262,
+          "ks": 0.07926030844405166,
+          "vuong_R": 31.756618678264463,
+          "vuong_p": 0.0002085931535591272,
+          "seconds": 0.0
+        },
+        {
+          "seed": 10,
+          "n_clusters": 6000,
+          "verdict": "no difference (indistinguishable)",
+          "xmin": 29,
+          "alpha": 4.922148125658893,
+          "ks": 0.08566762854439688,
+          "vuong_R": 7.12477959479943,
+          "vuong_p": 0.05913171775411197,
+          "seconds": 0.0
+        },
+        {
+          "seed": 11,
+          "n_clusters": 6000,
+          "verdict": "no difference (indistinguishable)",
+          "xmin": 31,
+          "alpha": 4.916258052264634,
+          "ks": 0.06896551724137931,
+          "vuong_R": 6.201920162982309,
+          "vuong_p": 0.05965663300239319,
+          "seconds": 0.0
+        }
+      ],
+      "expected_alpha": null,
+      "expectation": "exponential tail"
+    },
+    {
+      "control": "negative_branching_supercritical",
+      "n_seeds": 12,
+      "frac_power_law_wins": 0.0,
+      "n_power_law_wins": 0,
+      "frac_lognormal_wins": 1.0,
+      "median_alpha": 4.999994385398096,
+      "alpha_iqr": [
+        4.999994385398096,
+        4.999994385398096
+      ],
+      "median_xmin": 200016.5,
+      "n_clusters_median": 6000,
+      "seeds": [
+        {
+          "seed": 0,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200001,
+          "alpha": 4.999994385398096,
+          "ks": 0.34892072929415363,
+          "vuong_R": -746.8947152919221,
+          "vuong_p": 3.857784725347669e-168,
+          "seconds": 3.2
+        },
+        {
+          "seed": 1,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200017,
+          "alpha": 4.999994385398096,
+          "ks": 0.348352037311371,
+          "vuong_R": -749.6489305099401,
+          "vuong_p": 8.114864205930955e-169,
+          "seconds": 1.9
+        },
+        {
+          "seed": 2,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200047,
+          "alpha": 4.999994385398096,
+          "ks": 0.3475650646131918,
+          "vuong_R": -719.2542629626471,
+          "vuong_p": 4.879651861983611e-158,
+          "seconds": 1.8
+        },
+        {
+          "seed": 3,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200056,
+          "alpha": 4.999994385398096,
+          "ks": 0.34854768681662496,
+          "vuong_R": -776.4261824277502,
+          "vuong_p": 1.372937334139036e-172,
+          "seconds": 1.8
+        },
+        {
+          "seed": 4,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200044,
+          "alpha": 4.999994385398096,
+          "ks": 0.3487494623925764,
+          "vuong_R": -819.328939575501,
+          "vuong_p": 4.872773269080301e-189,
+          "seconds": 1.8
+        },
+        {
+          "seed": 5,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200045,
+          "alpha": 4.999994385398096,
+          "ks": 0.34794448952659984,
+          "vuong_R": -762.0447092278611,
+          "vuong_p": 2.82224084483751e-170,
+          "seconds": 1.8
+        },
+        {
+          "seed": 6,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200016,
+          "alpha": 4.999994385398096,
+          "ks": 0.3484517206773663,
+          "vuong_R": -784.1367684421215,
+          "vuong_p": 9.230519555397497e-174,
+          "seconds": 1.8
+        },
+        {
+          "seed": 7,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200014,
+          "alpha": 4.999994385398096,
+          "ks": 0.34977519970212234,
+          "vuong_R": -790.8050230967962,
+          "vuong_p": 1.7057792897220116e-181,
+          "seconds": 1.7
+        },
+        {
+          "seed": 8,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200015,
+          "alpha": 4.999994385398096,
+          "ks": 0.34826121038351643,
+          "vuong_R": -736.3452748261232,
+          "vuong_p": 3.01474753577192e-171,
+          "seconds": 1.8
+        },
+        {
+          "seed": 9,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200001,
+          "alpha": 4.999994385398096,
+          "ks": 0.34818316672899496,
+          "vuong_R": -743.4268893170735,
+          "vuong_p": 2.0043716103108477e-159,
+          "seconds": 1.9
+        },
+        {
+          "seed": 10,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200001,
+          "alpha": 4.999994385398096,
+          "ks": 0.34862242747979133,
+          "vuong_R": -763.6413815818902,
+          "vuong_p": 4.0780578168880666e-181,
+          "seconds": 1.9
+        },
+        {
+          "seed": 11,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 200055,
+          "alpha": 4.999994385398096,
+          "ks": 0.3489154522362802,
+          "vuong_R": -739.8102485272523,
+          "vuong_p": 3.883365611243758e-171,
+          "seconds": 1.8
+        }
+      ],
+      "expected_alpha": null,
+      "expectation": "giant cluster"
+    },
+    {
+      "control": "negative_lognormal_s0.6",
+      "n_seeds": 12,
+      "frac_power_law_wins": 0.0,
+      "n_power_law_wins": 0,
+      "frac_lognormal_wins": 0.9166666666666666,
+      "median_alpha": 2.129530313739075,
+      "alpha_iqr": [
+        2.1184946291601134,
+        2.132072954408148
+      ],
+      "median_xmin": 2.0,
+      "n_clusters_median": 6000,
+      "seeds": [
+        {
+          "seed": 0,
+          "n_clusters": 6000,
+          "verdict": "no difference (indistinguishable)",
+          "xmin": 11,
+          "alpha": 4.999993354594937,
+          "ks": 0.25892857142857145,
+          "vuong_R": 21.839078197546396,
+          "vuong_p": 0.05635302692090107,
+          "seconds": 0.0
+        },
+        {
+          "seed": 1,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.1308786952073953,
+          "ks": 0.26785472870866667,
+          "vuong_R": -1960.1985277350086,
+          "vuong_p": 1.3808114477962596e-258,
+          "seconds": 0.0
+        },
+        {
+          "seed": 2,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.129186187130514,
+          "ks": 0.26263253774508577,
+          "vuong_R": -1850.0916205892609,
+          "vuong_p": 3.6665922827094997e-214,
+          "seconds": 0.0
+        },
+        {
+          "seed": 3,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.1174093790896746,
+          "ks": 0.2673529252937185,
+          "vuong_R": -1935.204378336585,
+          "vuong_p": 5.159208743412881e-255,
+          "seconds": 0.0
+        },
+        {
+          "seed": 4,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.133197749718522,
+          "ks": 0.2563347782497294,
+          "vuong_R": -1766.6425087260345,
+          "vuong_p": 2.3323667480940103e-219,
+          "seconds": 0.0
+        },
+        {
+          "seed": 5,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.117286610857789,
+          "ks": 0.2563628656316561,
+          "vuong_R": -1793.7506156832983,
+          "vuong_p": 2.7373195509236676e-220,
+          "seconds": 0.0
+        },
+        {
+          "seed": 6,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.129874440347636,
+          "ks": 0.26693642941663864,
+          "vuong_R": -1861.040624663468,
+          "vuong_p": 1.7327214871241513e-247,
+          "seconds": 0.0
+        },
+        {
+          "seed": 7,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.122506656498477,
+          "ks": 0.2629315308854967,
+          "vuong_R": -1859.4302833250229,
+          "vuong_p": 1.6064546830667006e-240,
+          "seconds": 0.0
+        },
+        {
+          "seed": 8,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.117445527637109,
+          "ks": 0.2672214084038929,
+          "vuong_R": -1931.479499462809,
+          "vuong_p": 4.6399761472753065e-263,
+          "seconds": 0.0
+        },
+        {
+          "seed": 9,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.1188443296677812,
+          "ks": 0.26497621169645896,
+          "vuong_R": -1882.1211835555646,
+          "vuong_p": 2.5668255302064986e-243,
+          "seconds": 0.0
+        },
+        {
+          "seed": 10,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.1355962550799696,
+          "ks": 0.2599436232840067,
+          "vuong_R": -1825.1736298144278,
+          "vuong_p": 2.2467495019573e-228,
+          "seconds": 0.0
+        },
+        {
+          "seed": 11,
+          "n_clusters": 6000,
+          "verdict": "lognormal beats power law",
+          "xmin": 2,
+          "alpha": 2.131698022638023,
+          "ks": 0.26293672311166394,
+          "vuong_R": -1825.2908556197385,
+          "vuong_p": 4.369349597366489e-233,
+          "seconds": 0.0
+        }
+      ],
+      "expected_alpha": null,
+      "expectation": "lognormal is the literal truth"
+    },
+    {
+      "control": "negative_lognormal_s1.2",
+      "n_seeds": 12,
+      "frac_power_law_wins": 1.0,
+      "n_power_law_wins": 12,
+      "frac_lognormal_wins": 0.0,
+      "median_alpha": 3.2996280725590603,
+      "alpha_iqr": [
+        3.1245734914184267,
+        3.5392392561334285
+      ],
+      "median_xmin": 29.0,
+      "n_clusters_median": 6000,
+      "seeds": [
+        {
+          "seed": 0,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 22,
+          "alpha": 3.035816368028192,
+          "ks": 0.054945054945054944,
+          "vuong_R": 76.78973349961933,
+          "vuong_p": 3.667714939110196e-08,
+          "seconds": 0.0
+        },
+        {
+          "seed": 1,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 49,
+          "alpha": 3.7041557314165474,
+          "ks": 0.056714988282488055,
+          "vuong_R": 12.629080357434367,
+          "vuong_p": 0.0021525088701317605,
+          "seconds": 0.0
+        },
+        {
+          "seed": 2,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 25,
+          "alpha": 3.056505815360162,
+          "ks": 0.05263157894736842,
+          "vuong_R": 79.42935634952546,
+          "vuong_p": 0.0016127517349160299,
+          "seconds": 0.0
+        },
+        {
+          "seed": 3,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 36,
+          "alpha": 3.5231644235991877,
+          "ks": 0.050696133483279116,
+          "vuong_R": 32.129265328561154,
+          "vuong_p": 0.0004967964886813272,
+          "seconds": 0.0
+        },
+        {
+          "seed": 4,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 33,
+          "alpha": 3.3000299714370107,
+          "ks": 0.05063752517581843,
+          "vuong_R": 25.028097330830203,
+          "vuong_p": 0.00017855443396066706,
+          "seconds": 0.0
+        },
+        {
+          "seed": 5,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 29,
+          "alpha": 3.121034081978742,
+          "ks": 0.04121235744614585,
+          "vuong_R": 45.96183704769461,
+          "vuong_p": 2.1108166278368036e-07,
+          "seconds": 0.0
+        },
+        {
+          "seed": 6,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 33,
+          "alpha": 3.7779740661661467,
+          "ks": 0.04877885419458561,
+          "vuong_R": 35.48370921967634,
+          "vuong_p": 7.427469960394152e-07,
+          "seconds": 0.0
+        },
+        {
+          "seed": 7,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 28,
+          "alpha": 3.28225953622331,
+          "ks": 0.058605212178446275,
+          "vuong_R": 44.68897777444364,
+          "vuong_p": 4.101609170242632e-05,
+          "seconds": 0.0
+        },
+        {
+          "seed": 8,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 19,
+          "alpha": 3.125753294564988,
+          "ks": 0.06027397260273973,
+          "vuong_R": 88.22088719006568,
+          "vuong_p": 2.9789881516563627e-10,
+          "seconds": 0.0
+        },
+        {
+          "seed": 9,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 43,
+          "alpha": 3.5874637537361513,
+          "ks": 0.05058749480444147,
+          "vuong_R": 20.514059883590008,
+          "vuong_p": 0.0009583364641112942,
+          "seconds": 0.0
+        },
+        {
+          "seed": 10,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 28,
+          "alpha": 3.2992261736811095,
+          "ks": 0.05342050424517514,
+          "vuong_R": 49.15144599372297,
+          "vuong_p": 4.7770437139363384e-08,
+          "seconds": 0.0
+        },
+        {
+          "seed": 11,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 29,
+          "alpha": 3.5059281611750164,
+          "ks": 0.046511627906976744,
+          "vuong_R": 52.74688691676373,
+          "vuong_p": 1.861092434557961e-07,
+          "seconds": 0.0
+        }
+      ],
+      "expected_alpha": null,
+      "expectation": "lognormal is the literal truth"
+    },
+    {
+      "control": "negative_lognormal_s2.0",
+      "n_seeds": 12,
+      "frac_power_law_wins": 1.0,
+      "n_power_law_wins": 12,
+      "frac_lognormal_wins": 0.0,
+      "median_alpha": 2.1569507989609122,
+      "alpha_iqr": [
+        2.1058346584364025,
+        2.2723737663656367
+      ],
+      "median_xmin": 47.0,
+      "n_clusters_median": 6000,
+      "seeds": [
+        {
+          "seed": 0,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 17,
+          "alpha": 1.9368614314288095,
+          "ks": 0.03482142857142857,
+          "vuong_R": 311.74265559853507,
+          "vuong_p": 2.3501277378815542e-35,
+          "seconds": 0.1
+        },
+        {
+          "seed": 1,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 34,
+          "alpha": 2.1626633961754553,
+          "ks": 0.028906942349539944,
+          "vuong_R": 210.93755444263905,
+          "vuong_p": 6.612905523819855e-33,
+          "seconds": 0.1
+        },
+        {
+          "seed": 2,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 67,
+          "alpha": 2.226219073145983,
+          "ks": 0.030681900362294068,
+          "vuong_R": 133.4315063800394,
+          "vuong_p": 8.28884658568793e-06,
+          "seconds": 0.1
+        },
+        {
+          "seed": 3,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 25,
+          "alpha": 2.019255744083732,
+          "ks": 0.03730445246690734,
+          "vuong_R": 228.57254316997142,
+          "vuong_p": 2.3432125250979923e-25,
+          "seconds": 0.1
+        },
+        {
+          "seed": 4,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 108,
+          "alpha": 2.3594541672820304,
+          "ks": 0.03058629276015612,
+          "vuong_R": 61.530770440318356,
+          "vuong_p": 1.487089128833827e-11,
+          "seconds": 0.1
+        },
+        {
+          "seed": 5,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 47,
+          "alpha": 2.142204087540842,
+          "ks": 0.023411319749452875,
+          "vuong_R": 164.11987654714386,
+          "vuong_p": 1.573502065571866e-22,
+          "seconds": 0.1
+        },
+        {
+          "seed": 6,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 186,
+          "alpha": 2.757192723357897,
+          "ks": 0.03687275579498517,
+          "vuong_R": 35.79259643180726,
+          "vuong_p": 5.800906505984259e-08,
+          "seconds": 0.1
+        },
+        {
+          "seed": 7,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 47,
+          "alpha": 2.151238201746369,
+          "ks": 0.04166374463434053,
+          "vuong_R": 136.5346125311815,
+          "vuong_p": 2.366286379781234e-16,
+          "seconds": 0.1
+        },
+        {
+          "seed": 8,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 58,
+          "alpha": 2.243346966060172,
+          "ks": 0.0435413155275296,
+          "vuong_R": 103.63120148086622,
+          "vuong_p": 1.6044406660724175e-12,
+          "seconds": 0.1
+        },
+        {
+          "seed": 9,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 144,
+          "alpha": 2.4472989582438505,
+          "ks": 0.030867211165806263,
+          "vuong_R": 51.562004434835245,
+          "vuong_p": 7.111888628881996e-08,
+          "seconds": 0.1
+        },
+        {
+          "seed": 10,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 41,
+          "alpha": 2.1333731093782573,
+          "ks": 0.03497382099203117,
+          "vuong_R": 157.84666640187248,
+          "vuong_p": 2.3317538503724504e-20,
+          "seconds": 0.1
+        },
+        {
+          "seed": 11,
+          "n_clusters": 6000,
+          "verdict": "POWER LAW beats lognormal",
+          "xmin": 27,
+          "alpha": 2.023219305610838,
+          "ks": 0.039367759193725815,
+          "vuong_R": 200.83113940463298,
+          "vuong_p": 6.998907704442108e-23,
+          "seconds": 0.1
+        }
+      ],
+      "expected_alpha": null,
+      "expectation": "lognormal is the literal truth"
+    }
+  ],
+  "verdict": {
+    "positive_controls_detected": [
+      "positive_branching_critical",
+      "positive_percolation_2d_pc"
+    ],
+    "positive_controls_missed": [],
+    "negative_controls_stayed_quiet": [
+      "negative_branching_supercritical",
+      "negative_lognormal_s0.6"
+    ],
+    "negative_controls_false_positive": [
+      "negative_branching_subcritical",
+      "negative_lognormal_s1.2",
+      "negative_lognormal_s2.0"
+    ],
+    "instrument_sensitive": true,
+    "instrument_specific": false,
+    "total_seconds": 181.1,
+    "interpretation": "If instrument_sensitive is false, Paper 10's negative result must be WEAKENED: the pipeline cannot detect a power law even where one is known to exist, so its silence on the Empedoclean field is uninformative. If instrument_sensitive and instrument_specific are both true, the pipeline is a valid falsification instrument and the Empedocles result stands."
+  },
+  "n_seeds": 12,
+  "clusters_per_sample": 6000,
+  "instrument": "research/papers/fit_empedocles.py::fit_sample (imported, not reimplemented)",
+  "reproduce": "python3 research/papers/p10_controls.py --seeds 12"
+}
