@@ -136,7 +136,14 @@ claim is refuted.
 
 **DATA.** Targets: claude-code (42), cline (69), opencode (288). **Codex (3) is
 excluded as a target** — it cannot support a learning curve — but serves as a
-source. 3 targets × 3 sources × 100 partitions × 9 values of N = 16,200 cells.
+source. 9 target×source pairs × **200 partitions** × 9 values of N =
+**16,200 cells**.
+
+*(Correction: an earlier draft of this report said 100 partitions. The artifact
+records `n_partitions: 200`, and 16,200 cells is consistent with 9 pairs × 200 ×
+9. The 100-partition figure came from a re-run launched after the first run
+crashed in its print statement; that re-run overwrote nothing, because the
+first run had already written the JSON before crashing.)*
 
 **INFERENCE UNIT.** session.
 
@@ -177,12 +184,12 @@ whether a *classifier built from that prior* beats chance across partitions.
 They are different questions with different answers, and the paper should say
 so rather than pick the convenient one.
 
-**LIMITATION.** 100 partitions per cell, not 500. `cline` has 69 sessions and
+**LIMITATION.** 200 partitions per cell. `cline` has 69 sessions and
 `opencode` 288, so the train pools differ in size across targets, which may
 contribute to the asymmetry. A source's *coverage* of the target's kinds is a
 candidate explanation and is not yet tested as a predictor.
 
-**REPRODUCTION.** `python3 research/papers/p1_all_targets_coldstart.py --partitions 100`
+**REPRODUCTION.** `python3 research/papers/p1_all_targets_coldstart.py --partitions 200`
 **ARTIFACT.** `research/p1_all_targets_coldstart.json`
 
 ---
