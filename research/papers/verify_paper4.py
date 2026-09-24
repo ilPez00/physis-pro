@@ -108,11 +108,23 @@ if _pn2 and sq:
     _len = res["blocks"]["LEN-ONLY"][-1]["top3"]
     expected.add(round(_n_rand - _len, 3))             # +0.123 (below null)
     expected.add(round(0.41, 2))                       # the 41% ratio, as stated
-    # the sequential permuted null, once the arm has been run
-    _sq_null = sq.get("0.75", {}).get("null")
-    if _sq_null:
-        expected.add(round(sq["0.75"]["top3"] - _sq_null["top3"], 3))
-        expected.add(round(_sq_null["top3"], 3))
+    # the sequential permuted null, and the margins quoted against it
+    for _frac, _r in (sq or {}).items():
+        _null = _r.get("null")
+        if not _null:
+            continue
+        for _k in ("top1", "top3", "top5"):
+            expected.add(round(_null[_k], 3))
+            expected.add(round(_r[_k] - _null[_k], 3))      # the margin
+            expected.add(round(abs(_r[_k] - _null[_k]), 3))
+        expected.add(int(_r.get("n_shuffles") or 0))
+    if sq and sq.get("0.75", {}).get("null"):
+        # the two margins compared in the abstract and discussion
+        _s_marg = sq["0.75"]["top3"] - sq["0.75"]["null"]["top3"]
+        expected.add(round(_s_marg, 3))                      # +0.434
+        expected.add(round(_g_rand - _n_rand, 3))            # +0.509
+        expected.add(round(sq["0.75"]["null"]["top3"], 3))    # 0.107
+        expected.add(round(_n_rand, 3))                      # 0.159
 
 orphans = sorted(n for n in tex_nums if n not in expected)
 print("=== PAPER 4 (paper4_propose_certify.tex) ===")

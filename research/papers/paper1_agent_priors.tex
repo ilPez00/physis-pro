@@ -36,13 +36,15 @@ five being anti-predictive --- so we report the positive result as
 BH-dependent and not established. We also show that the choice of
 bootstrap unit is a first-class methodological variable here: the
 incorrect action-level bootstrap makes two pairs look like positive
-transfer where the correct session-level unit finds none. Our earlier
-\emph{cold-start} claim --- that a borrowed prior beats a target's own thin
-history --- is \textbf{withdrawn}: on inspection, the local prior was
-constructed from the same sessions it was scored on, so the own-history arm
-is contaminated by train/test leakage (Section~4.4). A corrected paired
-evaluation, building priors on a held-out train split, is specified in
-\texttt{research/EXPERIMENT\_PLAN.md} and is not yet run. We report the
+transfer where the correct session-level unit finds none. On the positive
+side, we can report one leak-free result: our earlier \emph{cold-start} claim
+was contaminated by train/test leakage and has been withdrawn and re-run. In
+the corrected experiment --- priors built only on a held-out training pool,
+scored on a fixed held-out test set, paired intervals --- the borrowed prior
+sits \emph{below} chance at every history size (0.483) and never contributes,
+while two training sessions of local history already reach 0.600 and beat the
+borrowed prior by $+0.114$. There is no regime in which borrowing helps,
+which is a stronger claim than the one we originally made. We report the
 negative result, and the anti-predictive result, as the primary findings.
 \end{abstract}
 
@@ -265,16 +267,17 @@ widest: 3 sessions provide too little data for a per-kind prior. Two of the
 three other harnesses' priors exceed Codex's own baseline on point estimate
 (opencode$\to$codex: 0.503; cline$\to$codex: 0.513) while one does not
 (claude-code$\to$codex: 0.442). All three intervals overlap Codex's own, so
-none of these comparisons is individually established. Pooled, they are
-weakly suggestive of a \textbf{cold-start} effect --- a borrowed prior from
-a larger corpus beating a thin local history --- but three overlapping
-intervals do not establish it, and the within-target curve that we
-previously offered as the demonstration has been withdrawn for train/test
-leakage (Section~\ref{sec:coldstart}). \textbf{We therefore make no
-cold-start claim.} Note that this particular comparison is not affected by
-that leakage: codex's own baseline is leave-one-session-out and the borrowed
-priors come from other harnesses, so both arms are clean. It remains
-unestablished for the ordinary reason --- the intervals overlap.
+none of these comparisons is individually established. Pooled, they look
+like a \textbf{cold-start} effect --- a borrowed prior from a larger corpus
+beating a thin local history --- but three overlapping intervals do not
+establish it. This comparison is not affected by the leakage that
+invalidated our original cold-start curve (codex's own baseline is
+leave-one-session-out and the borrowed priors come from other harnesses, so
+both arms are clean); it remains unestablished for the ordinary reason that
+the intervals overlap. The corrected within-target experiment in
+Section~\ref{sec:coldstart} is what speaks to cold-start directly, and its
+answer is that borrowing never helps --- the borrowed prior is below chance
+at every history size, and local data beats it as soon as there is any.
 
 \subsection{Coverage correlates with transfer success}
 \label{sec:coverage}
@@ -322,59 +325,94 @@ vocabulary. Higher coverage predicts higher transfer success.}
 \label{fig:coverage}
 \end{figure}
 
-\subsection{Cold-start crossover}
+\subsection{Cold-start: a withdrawn curve, and a corrected experiment}
 \label{sec:coldstart}
 
-\textbf{This subsection is withdrawn. It reports a contaminated comparison
-and is retained only so the error is on the record.} The curve below was
-produced by building the local prior from target sessions and then scoring
-that prior on \emph{the same} target sessions:
+\textbf{First, the withdrawal.} Our originally reported curve --- 0.469
+(borrowed only) rising to 0.720 (own history), with a crossover at $n=2$ ---
+is contaminated and is not a result. It was produced by building the local
+prior from target sessions and then scoring that prior on \emph{the same}
+target sessions: \texttt{own\_only} (n=42) used all 42 claude-code sessions
+to build and all 42 to score, and \texttt{mixed\_n}$N$ scored on all of
+\texttt{tgt} including the \texttt{tgt[:N]} it was built from. The
+\texttt{transferred\_only} point was the only uncontaminated one.
 
-\begin{itemize}
-\item \texttt{own\_only} (n=42) built its prior from all 42 claude-code
-  sessions and was scored on all 42 --- pure leakage.
-\item \texttt{mixed\_n}$N$ built its prior from \texttt{tgt[:N]} and was
-  scored on all of \texttt{tgt}, which includes \texttt{tgt[:N]}.
-\item \texttt{transferred\_only} (n=0) is the only uncontaminated arm: its
-  prior comes from opencode, a different harness, and never sees claude-code.
-\end{itemize}
-
-Every point on the curve therefore shares one test set (14{,}457 actions, 42
-sessions), so the comparison is \emph{paired} --- but the two arms that
-appear to win are the two that were allowed to see their own test data. The
-effect size below, and the crossover at $n = 2$, cannot be attributed to
-local history.
-
-The one arm that is clean points the other way, and agrees with
-Section~\ref{sec:multiplicity}: the borrowed prior alone sits \emph{below}
-chance, 0.469 [0.445, 0.490], with an interval excluding 0.5. That is the
-same anti-predictive pattern the family-wise analysis finds. The prior
-borrowed from a different harness is worse than guessing, and that is the
-only part of this curve we still believe.
-
-The corrected experiment --- build priors on a held-out train split, score on
-a fixed held-out test split, sweep $N$ over the train portion only, and add
-the global-base-rate and shrunk/hierarchical arms that are currently missing
---- is specified in \texttt{research/EXPERIMENT\_PLAN.md}. Until it is run,
-this paper claims no cold-start effect.
+\emph{As originally reported (withdrawn, retained as an error record):}
+0.469 [0.445, 0.490] for the borrowed prior alone, 0.720 [0.700, 0.743] for
+own history, mixed exceeding borrowed-only at $n=2$ (0.598 [0.562, 0.635]).
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=0.7\textwidth]{fig2_cold_start_curve.pdf}
-\caption{WITHDRAWN. The cold-start curve as originally computed. The
-\texttt{own\_only} and \texttt{mixed\_n}$N$ points build their priors from
-sessions contained in the test set, so their apparent advantage over the
-transferred-only point is leakage, not local history. Retained to document
-the error; do not read it as a result.}
+\caption{WITHDRAWN --- shown only to document the error. This is the original
+cold-start curve. The \texttt{own\_only} and \texttt{mixed\_n}$N$ points
+built their priors from sessions contained in the test set, so their apparent
+advantage over the borrowed-only point is leakage, not local history. Do not
+read any part of it as a result; Table~\ref{tab:coldstart} supersedes it.}
 \label{fig:coldstart}
 \end{figure}
 
-\emph{As originally reported (withdrawn):} the curve for
-opencode$\to$claude-code rose from 0.469 [0.445, 0.490] (transferred prior
-only) to 0.720 [0.700, 0.743] (own prior only), with the mixed prior
-exceeding the transferred-only value at two target sessions
-(0.598 [0.562, 0.635]), suggesting a crossover at approximately two
-sessions.
+\textbf{Second, the corrected experiment.} We re-ran it with the target
+harness's 42 sessions split once, seeded, into a 30-session training pool and
+a 12-session held-out test set (6{,}132 test actions). Every arm is scored on
+the same held-out set; $N$ is swept over the training pool only, so no test
+session ever contributes to a prior; and the comparison is paired --- one
+resample of test sessions, both arms scored on it, difference recorded,
+2{,}000 times --- so the interval is on the difference. Four arms: local-only
+(first $N$ training sessions), borrowed-only (\texttt{opencode}, no target
+data), mixed (local + borrowed counts), and pooled-others (all non-target
+harnesses).
+
+\begin{table}[h]
+\centering
+\caption{Cold-start, corrected. Held-out test set is fixed across every row.
+Intervals are paired session-level bootstrap (2{,}000 resamples) on the
+difference from the borrowed-only arm. Arm A is undefined at $N=0$: there is
+no local history to build a prior from. 15 of the 18 differences exclude
+zero.}
+\label{tab:coldstart}
+\begin{tabular}{rrrrrl}
+\toprule
+$N$ & A local-only & B borrowed-only & C mixed & D pooled-others & A $-$ B \\
+\midrule
+0  & ---   & 0.483 & 0.483 & 0.482 & --- \\
+2  & 0.600 & 0.483 & 0.608 & 0.605 & $+0.114$ $[+0.040, +0.153]$ \\
+5  & 0.625 & 0.483 & 0.627 & 0.625 & $+0.138$ $[+0.081, +0.168]$ \\
+10 & 0.652 & 0.483 & 0.629 & 0.626 & $+0.167$ $[+0.123, +0.199]$ \\
+20 & 0.656 & 0.483 & 0.667 & 0.652 & $+0.172$ $[+0.123, +0.219]$ \\
+30 & 0.649 & 0.483 & 0.667 & 0.666 & $+0.166$ $[+0.118, +0.221]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three things follow, and the third overturns our original framing.
+
+\begin{enumerate}
+\item \textbf{Local history pays off almost immediately.} Two training
+  sessions are enough to reach 0.600, and by 20 sessions the local prior sits
+  at 0.656.
+\item \textbf{The borrowed prior is below chance at every $N$, and never
+  improves.} It is fixed at 0.483 because it is fixed \emph{in fact} --- no
+  amount of target data enters it. This is the same anti-predictive pattern
+  Section~\ref{sec:multiplicity} finds, now visible within a single target.
+\item \textbf{There is no cold-start regime in the sense we claimed.} Our
+  original story was that a borrowed prior helps while local history is thin
+  and loses once it matures. The corrected curve has no such region: the
+  borrowed prior never helps, at any $N$, and local data beats it as soon as
+  there is any. The claim we can defend is weaker in mechanism and stronger
+  in force --- \emph{borrowed priors do not help even where we expected them
+  to help most}.
+\end{enumerate}
+
+Mixed and pooled-others track local-only closely and never separate from it:
+at $N=10$ local-only (0.652) is in fact \emph{above} mixed (0.629), and at
+$N=2$ the difference is within noise. Adding borrowed counts to local data
+buys nothing measurable here.
+
+Stored in \texttt{research/e1\_coldstart\_paired.json}. This experiment is
+what the original should have been: the defect was leakage, not the choice of
+arms, and the leakage is what produced both the apparent improvement and the
+apparent crossover.
 
 \section{Discussion}
 
@@ -442,7 +480,17 @@ of a task domain; on this corpus, where they are detectable across harnesses
 at all, they are actively misleading. That is a negative result with a
 sign, and it is the one the data supports.
 
-Two methodological points follow. First, the bootstrap unit is a
+The within-target experiment agrees. Having withdrawn our original cold-start
+curve for train/test leakage and re-run it properly --- priors built only on
+a held-out training pool, all arms scored on a fixed held-out test set,
+paired intervals --- the borrowed prior sits below chance at every history
+size and never contributes, while two sessions of local history are already
+worth $+0.114$ AUC over it. We originally hoped to find a regime where
+borrowing is worth doing. There is none here: the answer to ``should I
+borrow a failure prior from another agent?'' is no, at every amount of local
+data from zero upward.
+
+Three methodological points follow. First, the bootstrap unit is a
 first-class variable in this kind of evaluation: the action-level bootstrap
 reports two pairs as positive transfer where the session-level bootstrap
 reports none, and the only thing that changes is interval width. Clustering
@@ -450,7 +498,12 @@ actions within sessions inflates apparent significance, and
 agent-trajectory work should resample sessions. Second, a plausible and
 often-assumed property of the data --- that vocabulary coverage governs
 transfer --- is at best exploratory here, since it is estimated from
-eleven chance-level point estimates.
+eleven chance-level point estimates. Third, and most transferable: the
+original cold-start curve looked smooth, monotone and plausible, and it was
+an artifact of scoring a prior on the sessions it was built from. A curve
+that rises with the amount of data an arm is allowed to see should be
+suspected of exactly that, and the check is cheap --- rebuild the prior from
+a disjoint split and see whether the curve survives.
 
 The honest summary is negative: failure structure is only weakly a
 property of the agent as opposed to the user, the repository, and the task.

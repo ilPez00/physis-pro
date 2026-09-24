@@ -190,11 +190,39 @@ def cross_paper_checks(claims):
         else:
             ok("XFER-005: paper1 no longer asserts an established pair")
 
-    # ---- XFER-006: the cold-start curve must be marked withdrawn
-    if "This subsection is withdrawn" in p1 and "WITHDRAWN" in p1:
-        ok("XFER-006: paper1 marks the cold-start curve withdrawn")
+    # ---- XFER-006: the withdrawn curve must be marked, and the corrected
+    # experiment reported (XFER-007)
+    if re.search(r"WITHDRAWN|is contaminated and is not a result", p1):
+        ok("XFER-006: paper1 marks the original cold-start curve as withdrawn")
     else:
         fail("XFER-006: paper1 does not mark the cold-start curve as withdrawn")
+    if "e1\\_coldstart\\_paired.json" in p1 or "e1_coldstart_paired.json" in p1:
+        ok("XFER-007: paper1 cites the corrected cold-start artifact")
+    else:
+        fail("XFER-007: paper1 does not cite the corrected cold-start artifact")
+    _cs = load("research/e1_coldstart_paired.json")
+    if _cs:
+        _rows = {r["n_local_train_sessions"]: r for r in _cs["results"]}
+        # the borrowed arm must be below chance at every N -- that is the claim
+        _above = [n for n, r in _rows.items() if r["auc_B_borrow"] > 0.5]
+        if _above:
+            fail(f"XFER-007: borrowed-only AUC is above chance at N={_above}; "
+                 f"paper1 says it is below chance at every N")
+        else:
+            ok(f"XFER-007: borrowed-only below chance at all {len(_rows)} values of N "
+               f"(max {max(r['auc_B_borrow'] for r in _rows.values()):.3f})")
+        # arm A must be recorded undefined at N=0, not substituted
+        if _rows.get(0, {}).get("A_local_defined") is False and _rows[0]["auc_A_local"] is None:
+            ok("XFER-007: arm A recorded as undefined at N=0 (not substituted)")
+        else:
+            fail("XFER-007: arm A is not recorded as undefined at N=0")
+        # the headline entry
+        _two = _rows.get(2)
+        if _two and abs(_two["auc_A_local"] - 0.600) < 0.002:
+            ok(f"XFER-007: local-only at N=2 is 0.600 "
+               f"(diff {_two['diff_A_local_minus_B']['mean']:+.3f})")
+        else:
+            fail("XFER-007: local-only at N=2 is not 0.600 as the paper states")
 
 
 # ---------------------------------------------------------------- main

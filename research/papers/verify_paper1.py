@@ -58,6 +58,26 @@ if os.path.exists(_mult):
     _lp = [r for r in md["pairs"] if r["pair"] == "cline->opencode"][0]
     expected.add(round(_lp["holm_threshold"], 3))   # the 0.006 the text quotes
     expected.add(0.05 / 10)                         # the arithmetic as stated
+
+# corrected cold-start experiment (XFER-007): arm AUCs, paired diffs and CIs
+_cs = f"{REPO}/research/e1_coldstart_paired.json"
+if os.path.exists(_cs):
+    cd = json.load(open(_cs))
+    for r in cd["results"]:
+        for arm in ("A_local", "B_borrow", "C_mixed", "D_pool"):
+            v = r.get(f"auc_{arm}")
+            if v is not None:
+                for nd in (2, 3):
+                    expected.add(round(v, nd))
+        d = r.get("diff_A_local_minus_B", {})
+        for key in ("mean", "lo", "hi"):
+            v = d.get(key)
+            if v is not None:
+                for nd in (2, 3):
+                    expected.add(round(v, nd))
+        expected.add(r["n_local_train_sessions"])
+        expected.add(r["n_test_sessions"])
+        expected.add(r["n_test_actions"])
 for h, v in res["corpus"]["label_rates"].items():
     expected.add(round(v["marker_error"], 3))
     expected.add(round(v["harness_error"], 3))

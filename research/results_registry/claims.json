@@ -280,6 +280,25 @@
       "status": "superseded",
       "reproduce": "python3 research/papers/e74_replication.py",
       "note": "The corrected paired experiment (held-out train/test, arms A/B/C/D) is specified in research/EXPERIMENT_PLAN.md item 2 and is NOT yet run."
+    },
+    {
+      "claim_id": "XFER-007",
+      "statement": "Corrected, leak-free cold-start experiment: with priors built only on a held-out 30-session training pool and all arms scored on a fixed 12-session held-out test set (6,132 actions), the borrowed prior sits below chance at every history size (0.483) and never contributes, while local-only reaches 0.600 at N=2 and 0.656 at N=20, beating the borrowed prior by +0.114 [+0.040,+0.153] at N=2. 15 of 18 paired differences exclude zero. There is NO regime in which borrowing helps.",
+      "papers": [
+        "paper1_agent_priors"
+      ],
+      "experiment": "E74 coldstart (corrected)",
+      "result_file": "research/e1_coldstart_paired.json",
+      "json_path": "results.0.auc_B_borrow",
+      "source_script": "research/papers/e1_coldstart_paired.py",
+      "metric_definition": "AUC of per-kind failure prediction on a fixed held-out test set; paired session-level bootstrap CI on the difference from the borrowed-only arm",
+      "inference_unit": "session",
+      "seed": 42,
+      "n": 6132,
+      "uncertainty": "paired session-level bootstrap, 2000 resamples, on the difference",
+      "status": "established",
+      "reproduce": "python3 research/papers/e1_coldstart_paired.py",
+      "note": "Supersedes the withdrawn curve in XFER-006. Arm A (local-only) is undefined at N=0 and is recorded as null rather than substituted, so its diff is not computed there."
     }
   ]
 }

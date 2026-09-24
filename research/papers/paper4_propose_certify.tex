@@ -23,7 +23,11 @@ split against a matched 1{,}000-shuffle permuted-label null of 0.159. Under
 a \emph{sequential} split --- first $N$ decisions train, later decisions
 test, which is what a real user experiences --- top-3 falls to 0.541, the
 learning curve is no longer monotone, and the advantage over the random
-split is about thirteen points.
+split is about thirteen points. The proposer's advantage \emph{over chance}
+survives the protocol change, however: under the sequential split's own
+1{,}000-shuffle permuted null (top-3 0.107) the margin is $+0.434$, against
+$+0.509$ under the random split. The absolute level is inflated by the
+random split; the effect is not.
 
 We deliberately do \emph{not} subtract the proposer score from the
 classifier score. Containment in $\{0,1\}$ and ROC AUC are different metrics
@@ -147,11 +151,31 @@ AUC 0.5 --- by $0.019$, which is not distinguishable from no improvement
 null the task clears}, not a distance between two scores on different
 rulers.
 
-The sequential protocol does not yet have its own permuted null: the
-sequential run measured the geometry arm and the in-order baselines but not
-a shuffled-label arm, so we report the sequential proposer score against the
-random-split null only as a directional observation and do not quote a
-sequential margin. Adding that arm is the first item in the experiment plan.
+The sequential protocol now has its own permuted null --- 1{,}000 label
+shuffles under the same construction, using the sequential split's own
+training portion:
+
+\begin{center}
+\begin{tabular}{rrrrrr}
+\toprule
+\textbf{frac} & \textbf{geometry top-3} & \textbf{null top-3} & \textbf{margin} & \textbf{null top-1} & \textbf{null top-5} \\
+\midrule
+0.10 & 0.345 & 0.195 & $+0.150$ & 0.071 & 0.300 \\
+0.25 & 0.348 & 0.177 & $+0.171$ & 0.060 & 0.275 \\
+0.50 & 0.577 & 0.166 & $+0.412$ & 0.055 & 0.265 \\
+0.75 & 0.541 & 0.107 & $+0.434$ & 0.034 & 0.178 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The sequential null is \emph{lower} than the random-split null at the same
+fraction (0.107 against 0.159 top-3), because a shuffled-label prior built
+from fewer training entries is weaker. The consequence is that the measured
+margin under the conservative protocol ($+0.434$) is close to the
+random-split margin ($+0.509$) even though the geometry arm itself drops
+thirteen points. The proposer's advantage over chance therefore survives the
+protocol change; what does not survive is its absolute level. We lead with
+the sequential number and keep the random split as a labelled upper bound.
 
 Put in a common, decision-relevant currency: the proposer takes a 57-cell
 search and hands a human 3 candidates containing the correct one 54--67\% of
@@ -160,13 +184,17 @@ same question without a human in the loop, provides no usable signal at
 all. That is a statement about human decision leverage, and it is the claim
 we are prepared to defend.
 
-\textbf{The magnitude is split-dependent.} The proposer's top-3 falls from
-0.668 to 0.541 when evaluation becomes sequential --- about thirteen points
---- which is the more realistic protocol, so the sequential figure is the
-conservative one and the random split is a labelled upper bound. What
-survives both splits is the ordering, not the size: geometry beats the
-lookup prior, the majority baseline and the length-only baseline at every
-fraction under both protocols, and the certifier stays at chance under both.
+\textbf{The magnitude is split-dependent; the effect is not.} The proposer's
+top-3 falls from 0.668 to 0.541 when evaluation becomes sequential --- about
+thirteen points --- so the absolute level is inflated by the random split.
+But the sequential split's own permuted null is also lower (0.107 against
+0.159), and the margin over that null barely moves ($+0.509 \to +0.434$).
+The more realistic protocol lowers the score and the floor together. We
+therefore lead with the sequential figure and keep the random split as a
+labelled upper bound. What survives both splits is the ordering: geometry
+beats its matched null, the lookup prior, the majority baseline and the
+length-only baseline at every fraction under both protocols, and the
+certifier stays at chance under both.
 
 The earlier framing, that a number previously filed as a failure (top-1
 0.447) becomes useful once the output is three candidates, still holds under
