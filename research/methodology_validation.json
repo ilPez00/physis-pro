@@ -1,5 +1,5 @@
 {
-  "git_commit": "c3d4c878d8d3c3b8721ee9c5057ada3ca9766fdc",
+  "git_commit": "f88f3b2ac23e66179925e371128e246d3bdbb28f",
   "claims_checked": 15,
   "invariants": {
     "I1_threshold_frozen": {
