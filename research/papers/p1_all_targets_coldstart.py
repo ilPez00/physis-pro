@@ -149,14 +149,30 @@ def main():
                             "mixed beats local-only in >95% of partitions"),
     }
 
-    json.dump({
+    out = {
         "targets": TARGETS, "excluded_targets": EXCLUDED,
         "sources": list(cbu.harn),
         "n_partitions": R, "n_train": N_TRAIN, "n_test": N_TEST,
         "N_list": list(N_LIST), "inference_unit": "session",
         "tensor": tensor, "pair_summary": pair_summary, "verdict": verdict,
         "cells": cells,
-    }, open(DEST, "w"), indent=2)
+    }
+
+    # Same clobber guard as p1_shrinkage_prior.py: DEST is a fixed path, so a
+    # run at a smaller --partitions finishing later would silently replace a
+    # larger one (this actually happened to the sibling script). Sidecar it.
+    prev = None
+    try:
+        prev = json.load(open(DEST)).get("n_partitions")
+    except (OSError, ValueError):
+        pass
+    dest = DEST
+    if prev is not None and prev > R:
+        dest = DEST.replace(".json", f"_n{R}.json")
+        print(f"REFUSED to overwrite {DEST} ({prev} partitions) with {R}; "
+              f"wrote {dest} instead. Canonical is the LARGER run.")
+    with open(dest, "w") as fh:
+        json.dump(out, fh, indent=2)
 
     print(f"\n=== per source/target pair (AUC medians at N=30) ===")
     print(f"{'pair':26s} {'local':>7s} {'borrow':>7s} {'mixed':>7s} "

@@ -260,14 +260,33 @@ def main():
             "target cannot supply about itself."),
     }
 
-    json.dump({
+    out = {
         "targets": TARGETS, "n_partitions": R, "n_train": N_TRAIN, "n_test": N_TEST,
         "N_list": list(N_LIST), "lambda_grid": list(LAMBDAS),
         "inference_unit": "session",
         "lambda_tuning": "inner fit/tune split of the TRAINING pool only; "
                           "lambda minimising tune-set log loss is applied to test",
         "summary": summary, "verdict": verdict, "per_partition": rows,
-    }, open(DEST, "w"), indent=2)
+    }
+    # Root-cause guard: DEST is a FIXED canonical path, so two runs launched at
+    # different --partitions clobber each other and whichever finishes LAST
+    # wins, regardless of which is better evidence. That actually happened: a
+    # 300-partition run started earlier finished later and overwrote a
+    # 150-partition one, silently invalidating numbers a report had quoted.
+    # Refuse to let a smaller run replace a larger one; sidecar it instead.
+    prev = None
+    try:
+        prev = json.load(open(DEST)).get("n_partitions")
+    except (OSError, ValueError):
+        pass
+    dest = DEST
+    if prev is not None and prev > R:
+        dest = DEST.replace(".json", f"_n{R}.json")
+        print(f"REFUSED to overwrite {DEST} ({prev} partitions) with {R}; "
+              f"wrote {dest} instead. The canonical artifact is the LARGER "
+              f"run -- re-run with --partitions >= {prev}.")
+    with open(dest, "w") as fh:
+        json.dump(out, fh, indent=2)
 
     print(f"=== AUC medians (targets={TARGETS}, {R} partitions each) ===")
     print(f"{'N':>3s} {'local':>7s} {'laplace':>8s} {'borrow':>7s} {'shrink':>7s} "

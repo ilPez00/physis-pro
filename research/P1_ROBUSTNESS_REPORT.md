@@ -12,7 +12,7 @@ Gates: `python3 research/results_registry/validate.py` · `python3 research/ledg
 |---|---|---|
 | 1A | Holm implementation and arithmetic | the manuscript's *conclusion* was right and its *arithmetic* was wrong; fixed, tested, sentence now generated |
 | 1B | 500 repeated partitions, opencode→claude-code | "borrowing never helps" **survives** partition choice |
-| 1C | all target×source pairs, 100 partitions each | **partially refuted**: two pairs DO benefit, `cline↔opencode` |
+| 1C | all target×source pairs, 200 partitions each | **partially refuted**: two pairs DO benefit, `cline↔opencode` |
 | 1D | shrinkage prior vs its decisive control | **strong claim survives**: source-shrinkage does not beat target-global shrinkage |
 
 **The headline claim has to be narrowed.** The version that survives is
@@ -219,56 +219,82 @@ of the **training** pool only.
 **PROCEDURE.** `p_target(k) = (fail_local(k) + λ·p_source(k)) / (n_local(k) + λ)`.
 
 **RESULT.** The decisive contrast is **source-shrinkage versus
-global-shrinkage**, both with their own tuned λ. 15 partitions per target
-(45 partition-runs, sources cycled):
+global-shrinkage**, both with their own tuned λ. Canonical run: **150
+partitions** per target (450 partition-runs, sources cycled):
 
 | N | source − global (median) | source beats global (frac) |
 |---|---|---|
-| 1 | **+0.020** | **0.60** |
-| 2 | −0.004 | 0.49 |
-| 3 | +0.002 | 0.51 |
-| 5 | +0.0005 | 0.51 |
-| 10 | −0.004 | 0.42 |
-| 20 | −0.003 | 0.44 |
-| 30 | −0.002 | **0.38** |
+| 1 | **+0.012** | **0.591** |
+| 2 | +0.006 | 0.564 |
+| 3 | +0.004 | 0.544 |
+| 5 | −0.0005 | 0.489 |
+| 10 | −0.003 | 0.433 |
+| 20 | −0.001 | 0.427 |
+| 30 | −0.001 | **0.427** |
 
-The source prior helps **only at N=1**, and marginally: +0.020 AUC, better in
-60% of splits — barely above a coin flip. From N=2 onward the median difference
-is at or below zero and the fraction of splits favouring the source falls to
-0.38 by N=30. Shrinkage toward the source does beat plain Laplace smoothing in
-the earlier 150-partition run, but so does shrinkage toward the target's own
-base rate, and in the direct comparison the source's advantage evaporates.
+The source prior helps **only in the first few sessions of local history**, and
+marginally: +0.012 AUC at N=1, better in 59% of splits. The crossover is
+between N=3 and N=5 — as soon as the target has a handful of its own sessions,
+shrinking toward the source stops beating shrinking toward the target's own
+base rate, and by N=30 the source is behind in 57% of splits.
 
-**Stability across partition counts.** Two independent runs (5 and 15
-partitions) agree on the direction: median source-minus-global is ≤ +0.02 at
-every N, and *negative* at the largest N in both. They disagree on the
-companion claims — `shrinkage_beats_laplace_at_every_N` reads True at 150
-partitions but False at 5 and 15 — which is a real λ-selection instability and
-is why no companion claim is promoted here.
+**Three independent runs agree on the direction**, which is stronger evidence
+than any single run:
+
+| partitions | N=1 median | N=1 frac | N=30 median | N=30 frac |
+|---|---|---|---|---|
+| 5 | +0.022 | 0.667 | −0.001 | 0.400 |
+| 15 | +0.020 | 0.600 | −0.002 | 0.378 |
+| **150 (canonical)** | +0.012 | 0.591 | −0.001 | 0.427 |
+
+In every run the source leads only at N=1, crosses over by N=5, and trails at
+N=30. The median magnitude *shrinks* as partitions increase (+0.022 → +0.020 →
++0.012), which is what you expect if the small-N advantage is mostly noise being
+averaged away — the honest reading is that the effect is at most ~0.01 AUC and
+probably smaller.
 
 **VERDICT.** **The strong claim survives.** Cross-agent information does not
 carry usable signal beyond what the target can supply about itself. Naive
 transfer fails, *and* the charitable re-use as shrinkage fails against the
-right control. The one exception is a marginal, non-persistent gain at N=1
-(one session of local history), which disappears as soon as any local data
-accumulates.
+right control. The one exception is a marginal, non-persistent gain over the
+first few local sessions, which does not survive accumulation of local data.
 
-**LIMITATION.** 15 partitions is adequate for the direction and inadequate for
-tight magnitudes; the difference being estimated (+0.005 to +0.02 AUC) is of
-the same order as its own partition-to-partition spread. The λ grid is coarse
+**LIMITATION.** The difference being estimated (+0.012 to +0.022 AUC) is of the
+same order as its partition-to-partition spread, so the N=1 advantage should be
+described as "not excluded" rather than "small but real". The λ grid is coarse
 (8 values); a finer grid could shift which λ is selected without changing the
-ordering, but the effects here are small enough that grid resolution could
-matter. The 150-partition run that would settle the magnitudes has been
-**OOM-killed twice** and remains a blocker.
+ordering. `shrinkage_beats_laplace_at_every_N` is True at 150 partitions but was
+False at 5 and 15, so **no companion claim about beating Laplace is promoted** —
+that instability is itself a finding about the estimator, not noise to be
+averaged away.
 
-**BLOCKER.** Memory. `p1_shrinkage_prior.py --partitions 150` and
-`p1_all_targets_coldstart.py --partitions 200` both exceed what this box can
-run alongside its other services (swap is 17 GiB / 17 GiB exhausted
-system-wide; both attempts died before writing output). Reduced partition
-counts and `OMP_NUM_THREADS=1` are the workaround.
+**PROCESS FAILURE, recorded.** Both experiment scripts wrote a **fixed
+canonical path**, so two runs at different `--partitions` race for the same
+file and whichever finishes last wins, regardless of which is better evidence.
+What actually happened here: a 300-partition run was launched *before* the
+decisive control was added to the script, so it executed the control-less code;
+the 150-partition run with the control finished later and replaced it. The
+surviving artifact is therefore the better-powered, control-bearing one and
+**no number quoted above was invalidated** — the incident is milder than it
+first appeared.
 
-**REPRODUCTION.** `python3 research/papers/p1_shrinkage_prior.py --partitions 15`
-**ARTIFACT.** `research/p1_shrinkage_prior.json` (records `n_partitions: 15`)
+The mechanism is dangerous in the other direction, though, and that is why it
+is recorded: had the 300-partition run finished *last*, this report's numbers
+would have been silently replaced by a control-less artifact that could not
+answer the question at all, and nothing in the pipeline would have flagged it.
+A stale run can also be larger than a current one, so "last write wins" is not
+even correlated with "best evidence".
+
+Both scripts now **refuse to let a smaller run replace a larger one** and write
+a `_n{N}` sidecar instead — verified by running each at 5 partitions, where both
+declined to overwrite the canonical artifact. The general lesson (a fixed output
+path plus concurrent runs equals silent result replacement) belongs in M as a
+failure mode: it is a provenance failure that no amount of careful prose
+catches, and it is exactly the class of error the ledger invariants are meant to
+make impossible.
+
+**REPRODUCTION.** `python3 research/papers/p1_shrinkage_prior.py --partitions 150`
+**ARTIFACT.** `research/p1_shrinkage_prior.json` (`n_partitions: 150`)
 
 ---
 
