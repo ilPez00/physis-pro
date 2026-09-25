@@ -42,18 +42,18 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 def _np_load_chunk(path):
-    """Load a cached embedding chunk, tolerating the zero-length files an
-    interrupted run leaves behind. np.load on an empty .npy raises EOFError,
-    which previously killed the entire embed pass; an unreadable chunk is
-    treated as absent so the revision is simply re-embedded.
+    """Load a cached embedding chunk. Returns a 2-D (n, d) array, or a (0, 0)
+    array when the chunk is missing/empty/unreadable. It must never return a
+    1-D array: callers np.concatenate these along axis 0, and a 1-D element
+    raises "all the input arrays must have same number of dimensions".
     """
-    import os as _os
     try:
-        if _os.path.getsize(path) == 0:
-            return np.empty(0)
-        return np.load(path)
+        if os.path.getsize(path) == 0:
+            return np.empty((0, 0), dtype=np.float32)
+        a = np.load(path)
+        return a if a.ndim == 2 else np.empty((0, 0), dtype=np.float32)
     except (EOFError, ValueError, OSError):
-        return np.empty(0)
+        return np.empty((0, 0), dtype=np.float32)
 
 
 
@@ -118,23 +118,10 @@ def embed_nomic(texts, batch=8, workers=1):
     end. The process was OOM-killed partway through 11k revisions and every
     embedding was lost, so the job could not be restarted without redoing all
     of it -- on a box where swap is already exhausted and kills are expected,
-    not exceptional. Each completed batch is now flushed to its own .npy and
+    not exceptional. Each completed batch is flushed to its own .npy and
     progress is recovered on the next run.
     """
     d = _chunk_dir()
-    done = sorted(f for f in os.listdir(d) if f.endswith(".npy"))
-    n_done = 0
-    for f in done:
-        try:
-            n_done += len(_np_load_chunk(os.path.join(d, f)))
-        except (ValueError, OSError):
-            break
-    n_done = min(n_done, len(texts))
-    pending = texts[n_done:]
-    if n_done:
-        print(f"  resuming: {n_done}/{len(texts)} already embedded", flush=True)
-
-    batches = [pending[k:k + batch] for k in range(0, len(pending), batch)]
 
     def one(b):
         req = urllib.request.Request(
@@ -148,10 +135,53 @@ def embed_nomic(texts, batch=8, workers=1):
                     raise
         return []
 
-    n0 = len(done)
+    def embed_slice(sl):
+        a = np.asarray(one(list(sl)), dtype=np.float32)
+        a /= np.maximum(np.linalg.norm(a, axis=1, keepdims=True), 1e-12)
+        return a
+
+    # Repair before resuming. Chunk i covers texts[i*batch:(i+1)*batch] and the
+    # final concatenation is POSITIONAL, so a zero-length or wrong-shaped chunk
+    # must be REBUILT, not skipped: skipping it shifts every later chunk's rows
+    # onto the wrong revision and yields a silently misaligned embedding matrix
+    # -- wrong results rather than an error. An interrupted run leaves exactly
+    # such files behind, which is what killed the previous two attempts.
+    files = sorted(f for f in os.listdir(d) if f.endswith(".npy"))
+    for i, f in enumerate(files):
+        good = _np_load_chunk(os.path.join(d, f)).shape[0] > 0 or \
+            (i + 1) * batch > len(texts) and os.path.getsize(os.path.join(d, f)) > 0
+        if good:
+            continue
+        lo, hi = i * batch, min((i + 1) * batch, len(texts))
+        if lo >= len(texts):
+            os.remove(os.path.join(d, f))
+            continue
+        print(f"  repairing corrupt chunk {f} (rows {lo}:{hi})", flush=True)
+        np.save(os.path.join(d, f), embed_slice(texts[lo:hi]))
+
+    files = sorted(f for f in os.listdir(d) if f.endswith(".npy"))
+    n_done = sum(len(_np_load_chunk(os.path.join(d, f))) for f in files)
+    # Validate against len(texts), NOT against files*batch: this cache has been
+    # written by runs using different batch sizes, so the row total is the only
+    # invariant that holds. Too few rows is normal (resume); too many means the
+    # positional alignment is suspect and the cache must be rebuilt, because a
+    # longer-than-expected cache can pair vectors with the wrong revisions.
+    if n_done > len(texts):
+        raise SystemExit(
+            f"chunk cache holds {n_done} rows for {len(texts)} revisions -- "
+            f"alignment cannot be trusted. Rebuild: "
+            f"rm -rf {d} or re-run with --force-embed.")
+    n_done = min(n_done, len(texts))
+    pending = texts[n_done:]
+    if n_done:
+        print(f"  resuming: {n_done}/{len(texts)} already embedded", flush=True)
+
+    batches = [pending[k:k + batch] for k in range(0, len(pending), batch)]
+
+    n0 = len(files)
     for k, b in enumerate(batches):
         try:
-            vecs = one(b)
+            arr = embed_slice(b)
         except Exception as e:            # noqa: BLE001
             # Exit CLEANLY with what we have instead of raising. Every earlier
             # chunk is already on disk, so a rerun resumes instead of restarting;
@@ -160,14 +190,17 @@ def embed_nomic(texts, batch=8, workers=1):
                   f"  {n0+k} chunks of {len(batches)+n0} are on disk; "
                   f"re-run to resume", flush=True)
             break
-        arr = np.asarray(vecs, dtype=np.float32)
-        arr /= np.maximum(np.linalg.norm(arr, axis=1, keepdims=True), 1e-12)
         np.save(os.path.join(d, f"chunk_{n0 + k:06d}.npy"), arr)
         if (k + 1) % 20 == 0:
             print(f"    {n_done + (k + 1) * batch}/{len(texts)}", flush=True)
 
     files = sorted(f for f in os.listdir(d) if f.endswith(".npy"))
-    A = np.concatenate([_np_load_chunk(os.path.join(d, f)) for f in files], axis=0)
+    parts = [_np_load_chunk(os.path.join(d, f)) for f in files]
+    parts = [a for a in parts if a.shape[0] > 0]
+    A = np.concatenate(parts, axis=0)
+    if A.shape[0] < len(texts):
+        raise SystemExit(
+            f"only {A.shape[0]}/{len(texts)} revisions embedded; re-run to resume")
     return A[:len(texts)]
 
 
