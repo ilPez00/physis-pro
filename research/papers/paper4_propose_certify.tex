@@ -8,7 +8,7 @@
 
 \title{Propose, Do Not Certify: Representation Quality and the Judge/Proposer Gap}
 
-\author{Physis Research Program}
+\author{Giovanni Pezzin \\ Physis Research Program}
 \date{\today}
 
 \begin{document}
@@ -72,7 +72,7 @@ distance between the two tasks, for the reasons given in Section~7.
 
 \section{Method}
 
-Ground truth is the rater's \emph{revised} cell in
+The target label is the rater-assigned \emph{revised} cell in
 \texttt{refiling\_gate0.tsv}: 582 blind re-filings, 57 distinct target
 cells. The 76 non-blind entries are excluded. Vectors are the shipped
 bge-base-en-v1.5 768-d from \texttt{corpus.json}; no inference is run.
@@ -192,8 +192,9 @@ Put in a common, decision-relevant currency: the proposer takes a 57-cell
 search and hands a human 3 candidates containing the rater-assigned cell
 54--67\% of the time (sequential to random), while the certifier, asked to answer the
 same question without a human in the loop, provides no usable signal at
-all. That is a statement about human decision leverage, and it is the claim
-we are prepared to defend.
+all. That is a statement about decision-support potential for a filer whose
+policy resembles the training rater's --- not a claim about human decision
+leverage in general --- and it is the claim we are prepared to defend.
 
 \textbf{The magnitude is split-dependent; the effect is not.} The proposer's
 top-3 falls from 0.668 to 0.541 when evaluation becomes sequential --- about
