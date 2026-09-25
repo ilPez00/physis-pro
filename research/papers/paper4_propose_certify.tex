@@ -18,7 +18,7 @@
 A representation that is an unreliable judge can still be a useful proposer
 --- but less decisively than a random-split evaluation suggests. On a
 582-entry, 57-cell ontology filing task, embedding geometry achieves top-3
-containment of the rater's own cell at 0.668 under a random train/test
+containment of the rater-assigned cell at 0.668 under a random train/test
 split against a matched 1{,}000-shuffle permuted-label null of 0.159. Under
 a \emph{sequential} split --- first $N$ decisions train, later decisions
 test, which is what a real user experiences --- top-3 falls to 0.541, the
@@ -38,9 +38,17 @@ matched null. Judged that way: as a proposer the representation clears its
 random-split permuted null by $+0.509$ top-3, and as a certifier it sits at
 chance ($0.519$ against a $0.5$ null, $n=574$). The surviving claim is
 therefore qualitative and about decision leverage --- the representation
-narrows 57 candidate cells to 3 and places the right one in that set
+narrows 57 candidate cells to 3 and places the rater-assigned cell in that set
 54--67\% of the time, whereas the same representation asked to certify is
 uninformative --- not a numerical gap between two incommensurable scales.
+One qualification, from a second rater on the same 582 entries: the raters
+agree on the exact cell for 0.230 of them ($\kappa = 0.202$), and a proposer
+trained on one rater reaches the other rater's cell in its top-3 at 0.319 and
+0.367 against 0.608 and 0.673 for its own rater, while on a single axis most
+of the signal crosses. The representation carries
+structure both raters share, but the 57-cell reduction is roughly half as
+strong for a rater it was not trained on, and what shares is the axis, not
+the cell.
 \end{abstract}
 
 \section{Introduction}
@@ -57,9 +65,10 @@ The proposition we test is not that geometry can judge --- Section~5 shows
 it cannot --- but that it can propose: the representation that cannot judge
 may still usefully narrow a search. We measure that separately, in each case
 against the null appropriate to the task, and find the proposer's advantage
-real under both a random and a sequential split while the certifier's is
-absent under both. We do not report a distance between the two tasks, for
-the reasons given in Section~7.
+real under both a random and a sequential split. The certifier was measured
+once, under one protocol, and sits at chance there; we did not re-run it
+sequentially, so we do not claim it is absent under both. We do not report a
+distance between the two tasks, for the reasons given in Section~7.
 
 \section{Method}
 
@@ -69,7 +78,7 @@ cells. The 76 non-blind entries are excluded. Vectors are the shipped
 bge-base-en-v1.5 768-d from \texttt{corpus.json}; no inference is run.
 
 Nearest-centroid over cells built from the decisions already made, scored
-as top-k containment of the rater's own cell, on a learning curve over how
+as top-k containment of the rater-assigned cell, on a learning curve over how
 many decisions the rater has made. Five shuffles per point.
 
 \section{Results}
@@ -86,8 +95,10 @@ many decisions the rater has made. Five shuffles per point.
 \textbf{436} & \textbf{0.438} & \textbf{0.667} & \textbf{0.755} \\
 \bottomrule
 \end{tabular}
-\caption{Top-k containment of the rater's own cell, by number of decisions
-seen. The learning curve is still climbing at 436.}
+\caption{Top-k containment of the rater-assigned cell, under the random split
+only, by number of decisions seen. This curve does not survive the sequential
+split (\S split protocol): there it falls at the last step, so the earlier
+``still climbing at 436'' reading is withdrawn.}
 \label{tab:learning}
 \end{table}
 
@@ -178,8 +189,8 @@ protocol change; what does not survive is its absolute level. We lead with
 the sequential number and keep the random split as a labelled upper bound.
 
 Put in a common, decision-relevant currency: the proposer takes a 57-cell
-search and hands a human 3 candidates containing the correct one 54--67\% of
-the time (sequential to random), while the certifier, asked to answer the
+search and hands a human 3 candidates containing the rater-assigned cell
+54--67\% of the time (sequential to random), while the certifier, asked to answer the
 same question without a human in the loop, provides no usable signal at
 all. That is a statement about human decision leverage, and it is the claim
 we are prepared to defend.
@@ -194,7 +205,7 @@ therefore lead with the sequential figure and keep the random split as a
 labelled upper bound. What survives both splits is the ordering: geometry
 beats its matched null, the lookup prior, the majority baseline and the
 length-only baseline at every fraction under both protocols, and the
-certifier stays at chance under both.
+certifier sits at chance in its single measurement ($0.519$, $n=574$).
 
 The earlier framing, that a number previously filed as a failure (top-1
 0.447) becomes useful once the output is three candidates, still holds under
@@ -205,8 +216,9 @@ searching 57 cells.
 \textbf{Supervision is doing the work.} 436 decisions is most of a corpus.
 The honest claim is ``geometry converts human decisions into leverage over
 the remaining ones,'' not ``geometry replaces them.'' The learning curve
-is the thing to read: at 58 decisions top-3 is 0.385, already 1.5$\times$ the
-majority floor.
+is the thing to read: at 58 decisions top-3 is 0.385 against a majority-baseline
+top-3 of 0.255 ($1.5\times$) and a 3.5$\times$ multiple of the 0.11 share held
+by the single largest cell.
 
 \textbf{The mode axis is the constraint.} Scoring per axis at 436 decisions
 seen:
@@ -233,19 +245,107 @@ found and explained by population rather than by missing definition, now
 stated as a division of labour: \textbf{the machine proposes the domain,
 the person picks the mode.}
 
-\textbf{Limits.} One rater (Claude), and the same rater produced the
-replacement filing. Under ``is the machine right'' that is a confound.
-Under this framing it is the target --- the artifact exists to pre-sort for
-an arbiter --- but \emph{whose} policy it learned is untested, and a second
-rater is the experiment that would settle it.
+\subsection*{Whose cells? The proposer against a second rater}
+
+Everything above trains on the cells \emph{Claude} assigned and tests
+containment of cells \emph{Claude} assigned. That cannot separate ``the
+embedding carries semantic structure'' from ``the embedding memorises one
+rater's policy.'' A second rater was therefore run on the same 582 entries ---
+deepseek-chat, blind to the old cell, to Claude's cell and to any geometry
+proposal, one item at a time --- and the four arms crossed on identical
+splits, each against its own matched null:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Arm} & \textbf{0.10} & \textbf{0.25} & \textbf{0.50} & \textbf{0.75} & \textbf{null @0.75} \\
+\midrule
+A$\to$A \ (Claude $\to$ Claude)      & 0.367 & 0.501 & 0.610 & 0.673 & 0.159 \\
+B$\to$B \ (DeepSeek $\to$ DeepSeek)  & 0.404 & 0.492 & 0.564 & 0.608 & 0.206 \\
+A$\to$B \ (train A, test B)          & 0.226 & 0.297 & 0.349 & 0.367 & 0.127 \\
+B$\to$A \ (train B, test A)          & 0.203 & 0.264 & 0.302 & 0.319 & 0.110 \\
+\bottomrule
+\end{tabular}
+\caption{Top-3 containment by rater pair, 582 entries, 40 splits $+$ 200
+train-label permutations per point. Margins over the matched null at 436
+decisions seen: $+0.514$, $+0.402$, $+0.240$, $+0.209$.}
+\label{tab:raters}
+\end{table}
+
+At 436 decisions seen, a proposer trained on one rater puts the other rater's
+cell in its top-3 at 0.367 and 0.319 against 0.673 and 0.608 for its own
+rater. Cross-rater transfer clears its own null at every arm and every
+fraction, so the signal is not purely rater-specific --- but at the cell level
+it keeps only about half the margin, and the DeepSeek-trained arm does not
+beat the marginals-only baseline at any fraction (0.319 against 0.330 at 436
+decisions). Part of that is coverage, not geometry: 0.182 of the test entries
+in that arm carry a cell the DeepSeek-trained candidates cannot contain,
+because DeepSeek used 42 cells where Claude used 57 (15 Claude cells are
+outside DeepSeek's vocabulary, none the reverse). The two raters agree on the
+exact cell for 0.230 of entries, $\kappa = 0.202$ (95\% CI
+$0.168$--$0.235$) --- slight agreement, so the exact cell is largely a
+rater's own policy.
+
+The shared part lives at lower resolution, which is where the per-axis split
+above already said the machine carries the work. Scoring one axis at a time
+at 436 decisions seen:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Axis} & \textbf{Arm} & \textbf{Top-3} & \textbf{Margin} & \textbf{Majority} \\
+\midrule
+Domain (5) & A$\to$A & 0.948 & $+0.333$ & 0.698 \\
+           & B$\to$B & 0.922 & $+0.216$ & 0.839 \\
+           & A$\to$B & 0.809 & $+0.201$ & 0.698 \\
+           & B$\to$A & 0.790 & $+0.182$ & 0.839 \\
+\midrule
+Mode (14/13) & A$\to$A & 0.817 & $+0.425$ & 0.555 \\
+             & B$\to$B & 0.813 & $+0.380$ & 0.567 \\
+             & A$\to$B & 0.675 & $+0.326$ & 0.555 \\
+             & B$\to$A & 0.668 & $+0.320$ & 0.567 \\
+\bottomrule
+\end{tabular}
+\caption{One axis at a time, 436 decisions seen. Cross-rater transfer keeps
+$0.675$/$0.668$ of $0.817$/$0.813$ on the mode axis. The domain-axis
+B$\to$A majority figure is inherited from a train-side marginal DeepSeek does
+not share with Claude.}
+\label{tab:axisraters}
+\end{table}
+
+Restricting both raters to the 42 cells they do share (500 entries) leaves the
+picture where it was (A$\to$B $0.399$, B$\to$A $0.363$ at 436 decisions seen),
+so the cell-level attenuation is not an artifact of unequal vocabularies.
+
+The hypothesis this tests --- exact cell assignment is rater-dependent, while
+the geometry carries lower-resolution structure both raters share --- survives,
+and it corrects this paper's own framing rather than confirming it. The 57-cell
+reduction is a reduction over \emph{one} rater's cells: for a filer whose
+policy differs from the training rater it is worth roughly half the headline
+number, and on the exact cell it is worth no more than the trivial baseline of
+the three most common cells until the rater has made a few hundred decisions.
+What transfers is the axis, not the cell.
+
+\textbf{Limits.} Two raters, both language models, and the first of them
+(Claude) also produced the replacement filing. Under ``is the machine right''
+a self-consistent rater is a confound. Under this framing it is the target ---
+the artifact exists to pre-sort for an arbiter --- and the second-rater arms
+above now bound how much of the result is that rater's own policy: about half
+at the cell level, and much less at the axis level. That bound is not a
+resolution. Two language models agreeing is agreement between two policies,
+not evidence about ontology truth, and not evidence about human filers. A
+human rater is still the experiment that would settle whose policy this is.
 
 \textbf{What this does not show.} (1) Top-1 is not new --- 0.438
 essentially reproduces E5's 0.447 accuracy on the old labels. (2) It is
 not certification --- nothing here says an entry belongs in the proposed
 cell. E14--E18 stand untouched. (3) It predicts a policy, not a truth. (4)
-The rater was a language model, so this measures whether geometry can
-predict one model's filing policy, not ontology truth. A second,
-independent human rater is the experiment that would settle it.
+Both raters were language models, so this measures whether geometry can
+predict a model's filing policy --- and, per the crossed arms, only about half
+of a policy it was not trained on. It says nothing about ontology truth or
+about human filers; a human rater remains the experiment that would settle it.
 
 \subsection*{The split protocol, stated precisely}
 
@@ -310,8 +410,9 @@ two differ significantly --- only that the better-estimated null is
 higher. Corrected numbers at 436 decisions: null top-1 $0.048$, top-3
 $0.159$, top-5 $0.265$; geometry top-1 $0.419$, top-3 $0.668$, top-5
 $0.769$. The geometry-minus-null gap is therefore $+0.371$, $+0.509$ and
-$+0.505$ rather than the $+0.576$ implied by the original five-shuffle
-null. We report the revised figures and the reduced gap. The conclusion is
+$+0.505$ rather than the $+0.402$, $+0.531$ and $+0.522$ implied by the
+original five-shuffle null. We report the revised figures and the reduced
+gap. The conclusion is
 unchanged in direction --- geometry clears the permuted null by $+0.509$
 top-3, while the strongest baseline over that same null, the
 old$\rightarrow$new lookup prior, reaches only $+0.209$ (41\% as much) and
@@ -336,6 +437,21 @@ per-axis split) were regenerated from the surviving script and ground truth
 and are stored in \texttt{research/e21\_proposer\_results.json};
 \texttt{research/papers/parse\_e21.py} rebuilds that file and asserts the
 two headline figures.
+
+The second-rater arms are stored in
+\texttt{research/e21\_cross\_rater\_results.json}, produced by
+\texttt{research/papers/e21\_cross\_rater.py} (40 splits and 200 train-label
+permutations per point for the four main arms; 20 splits and 100 permutations
+for the shared-vocabulary and per-axis views) and re-checked by
+\texttt{research/papers/check\_e21\_cross\_rater.py}, which also re-derives the
+inter-rater agreement and $\kappa$ from the raw files and asserts the
+invariants (containment never exceeds the candidate-cell ceiling; $k$-seen
+splits are 58/145/291/436). Two data facts that the arms depend on: the join
+to the rater-2 file is on the row index \texttt{n}, because entry names repeat
+in \texttt{refiling\_gate0.tsv} (573 distinct names over the 585 blind rows,
+so a name-keyed join silently merges entries); and the arms reproduce the
+published E21 row exactly on the first five splits, which is the integrity
+check on the shared pipeline.
 
 The certification figures quoted for context --- the 0.519 (COSINE) and
 0.536 (CONSTRAINT) AUCs on real misfilings --- come from the E15--E18
