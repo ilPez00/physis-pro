@@ -37,6 +37,18 @@ impl RowRelation {
             RowRelation::Child => "contains",
         }
     }
+
+    /// `(direction_glyph, kind)` for a graph-grammar row. `direction` is the
+    /// arrow glyph showing how the row relates to the centre; `kind` is the
+    /// relation label (e.g. `near`, `same`, `relates to`).
+    pub fn kind_and_direction(&self) -> (&'static str, &str) {
+        match self {
+            RowRelation::Center => ("·", "center"),
+            RowRelation::Recorded(_k) => ("→", self.label()),
+            RowRelation::Near => ("⋯", "near"),
+            RowRelation::Child => ("▸", "contains"),
+        }
+    }
 }
 
 /// One row of a projection. Everything here is world-derived; everything the
@@ -167,7 +179,6 @@ impl Projection {
         }
     }
 
-    /// Attach the lens's categories (builder, so `new` stays readable).
     pub fn with_groups(mut self, groups: Vec<ProjectionGroup>) -> Self {
         self.groups = groups;
         self
@@ -200,7 +211,31 @@ impl Projection {
         out.extend(self.rows.iter());
         out
     }
+
+    /// Snapshot: flatten into `id,label` rows for the store, centre first.
+    pub fn to_rows(&self) -> Vec<&ProjectionRow> { self.all_rows() }
 }
+
+impl crate::hud::Lens for Projection {
+    fn name(&self) -> &str { &self.lens }
+
+    fn render_rows(&self) -> Vec<String> {
+        use crate::hud::lens_semantic::STRONG_SCORE;
+        let mut lines = Vec::new();
+        if let Some(c) = &self.center {
+            lines.push(format!("● {}", c.label));
+        }
+        for r in self.all_rows().iter() {
+            if self.center.as_ref().is_some_and(|c| c.object_id == r.object_id) { continue; }
+            let (dir, kind) = r.relation.kind_and_direction();
+            let score = r.score.unwrap_or(0.0);
+            let mark = if score >= STRONG_SCORE { "◆" } else { "·" };
+            lines.push(format!("  {} {} [{}] {} (id: {})", mark, dir, kind, r.label, r.object_id));
+        }
+        lines
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

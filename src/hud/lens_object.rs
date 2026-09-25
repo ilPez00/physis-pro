@@ -29,6 +29,11 @@ pub struct ObjectLens {
     pub near: Vec<LensEdge>,
 }
 
+impl crate::hud::Lens for ObjectLens {
+    fn name(&self) -> &str { "graph" }
+    fn render_rows(&self) -> Vec<String> { self.render() }
+}
+
 impl ObjectLens {
     pub fn edge_glyph(origin: RelationOrigin) -> &'static str {
         match origin {

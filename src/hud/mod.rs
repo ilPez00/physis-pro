@@ -45,7 +45,49 @@ pub mod event;
 pub mod intent;
 pub mod lens_object;
 pub mod lens_semantic;
-pub mod row;
 pub mod palette;
+pub mod row;
 pub mod world;
+
+/// The lens contract shared by every projection in the world surface.
+///
+/// A lens is a read-only **projection** over one focus + its neighbourhood
+/// (`NavHit`s ranked by the same scorer the world projection uses — never
+/// re-ranked here, never re-modelled). The trait gives the bin a uniform
+/// seam for `--view <lens>` / `--snapshot <lens>`: one `render_rows` for the
+/// list pane, one `snapshot` bounded to a terminal height for CI frames.
+/// See H7 (docs/plans/2026-09-19-impossible-computer.md §H7).
+pub trait Lens {
+    /// Canonical name — the `--view`/`--snapshot` token.
+    fn name(&self) -> &str;
+
+    /// Plain-text rows in the graph grammar for the list pane. State
+    /// markers (selected/pinned/changed) stay in the bin; this must never
+    /// reach for the `App`.
+    fn render_rows(&self) -> Vec<String>;
+
+    /// Render bounded to `height` lines (last line truncated with `…` when
+    /// over). `width` is accepted for future column shaping; current lenses
+    /// stay single-column for terminal parity.
+    fn snapshot(&self, _width: u16, height: u16) -> String {
+        let rows = self.render_rows();
+        let h = height as usize;
+        let out: String = rows.iter().take(h.saturating_sub(1)).cloned().collect::<Vec<_>>().join("\n");
+        let mut out = out;
+        if rows.len() > h.saturating_sub(1) { out.push_str("\n…"); }
+        out
+    }
+}
+
+/// Registry of lenses by name, so `--snapshot <lens>` dispatches without an
+/// `if/else` chain in the bin. Grows as lenses land; the trait object bound
+/// keeps the bin decoupled from each lens struct's type.
+pub fn lens_by_name(name: &str) -> Option<Box<dyn Lens>> {
+    // Filled in by the bin via `register_lenses`; lenses are not statically
+    // known here because they may depend on world state at projection time.
+    // (Static list kept empty on purpose — see H7.)
+    let _ = name;
+    None
+}
+
 
