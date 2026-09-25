@@ -4,7 +4,7 @@ import json, re, os
 
 REPO = "/home/gio/dev/physis-pro"
 res = json.load(open(f"{REPO}/research/e74_replication_results.json"))
-tex = open(f"{REPO}/research/papers/paper1_agent_priors.tex").read()
+tex = open(f"{REPO}/research/papers/paper1_failure_priors.tex").read()
 
 # numbers appearing in the tex, 3-dp
 tex_nums = {float(m) for m in re.findall(r"0\.\d{3}", tex)}

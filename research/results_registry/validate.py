@@ -149,7 +149,7 @@ def cross_paper_checks(claims):
             fail(f"paper9 does not state direction split {wg}/{wl} (derived {g}/{l})")
 
     # paper1's above-chance counts
-    p1 = open(os.path.join(PAPERS, "paper1_agent_priors.tex")).read()
+    p1 = open(os.path.join(PAPERS, "paper1_failure_priors.tex")).read()
     for cid, n, phrase in (("XFER-002", bc["action_above"], "action-level"),
                            ("XFER-001", bc["session_above"], "session-level")):
         w = {1: "one", 2: "two", 3: "three"}[n]

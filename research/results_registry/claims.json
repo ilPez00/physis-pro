@@ -9,7 +9,7 @@
     "Status vocabulary: established | suggestive | null | falsified | exploratory | superseded"
   ],
   "registry_version": "2.0.0",
-  "generated": "2026-09-24",
+  "generated": "2026-09-25",
   "repo": "/home/gio/dev/physis-pro",
   "git_branch_at_write": "agent/P-037-substrate",
   "claims": [
@@ -17,7 +17,7 @@
       "claim_id": "CORPUS-001",
       "statement": "Corpus size: 75,933 labelled actions across 402 sessions from 4 harnesses on 3 machines, one user.",
       "papers": [
-        "paper1_agent_priors",
+        "paper1_failure_priors",
         "paper9_dataset"
       ],
       "experiment": "E74",
@@ -41,7 +41,7 @@
       "claim_id": "CORPUS-002",
       "statement": "Session count is 402; median session length is 101 actions; max is 2014.",
       "papers": [
-        "paper1_agent_priors",
+        "paper1_failure_priors",
         "paper9_dataset"
       ],
       "experiment": "E74",
@@ -66,7 +66,7 @@
       "claim_id": "XFER-001",
       "statement": "Cross-harness failure-prior transfer: under session-level bootstrap only 1 of 12 source->target pairs has a CI excluding chance in the positive direction (cline->opencode, 0.534 [0.509,0.559]).",
       "papers": [
-        "paper1_agent_priors"
+        "paper1_failure_priors"
       ],
       "experiment": "E74",
       "result_file": "research/bootstrap_unit_check.json",
@@ -89,7 +89,7 @@
       "claim_id": "XFER-002",
       "statement": "Under the action-level bootstrap the same data yields 2 of 12 pairs above chance (cline->opencode and opencode->cline). The action-level bootstrap is the wrong inferential unit for this clustered data.",
       "papers": [
-        "paper1_agent_priors",
+        "paper1_failure_priors",
         "paper9_dataset"
       ],
       "experiment": "E74",
@@ -113,7 +113,7 @@
       "claim_id": "XFER-003",
       "statement": "The action-level bootstrap changes the significance verdict for 4 of the 12 pairs relative to session-level: 3 pairs become distinguishable from chance that were not, and 1 that was distinguishable (significantly below chance) stops being so.",
       "papers": [
-        "paper1_agent_priors",
+        "paper1_failure_priors",
         "paper9_dataset"
       ],
       "experiment": "E74",
@@ -138,7 +138,7 @@
       "claim_id": "XFER-004",
       "statement": "6 pairs are significantly below chance under the action-level bootstrap and 5 under session-level; the unlabelled 'does not transfer' headline conceals that most failures are anti-predictive, not merely uninformative.",
       "papers": [
-        "paper1_agent_priors"
+        "paper1_failure_priors"
       ],
       "experiment": "E74",
       "result_file": "research/bootstrap_unit_check.json",
@@ -311,7 +311,7 @@
       "claim_id": "XFER-005",
       "statement": "No cross-harness pair shows positive transfer after family-wise (Holm) correction over the 12 comparisons. The three pairs surviving Holm are significantly BELOW chance (claude-code->codex 0.394, codex->cline 0.401, codex->opencode 0.416). cline->opencode (0.534, raw p=0.0094) fails Holm, whose threshold at its rank is 0.006; it survives Benjamini-Hochberg only.",
       "papers": [
-        "paper1_agent_priors"
+        "paper1_failure_priors"
       ],
       "experiment": "E74 multiplicity",
       "result_file": "research/e1_multiplicity.json",
@@ -338,7 +338,7 @@
       "claim_id": "XFER-006",
       "statement": "WITHDRAWN: the cold-start crossover curve previously reported (transferred-only 0.469 -> own-only 0.720, crossover at n=2) is contaminated by train/test leakage. own_only built its prior from all 42 target sessions and was scored on those same 42; mixed_nN scored on tgt including the tgt[:n] used to build it. Only the transferred-only arm (n=0, prior from a different harness) is uncontaminated, and it sits below chance at 0.469 [0.445,0.490].",
       "papers": [
-        "paper1_agent_priors"
+        "paper1_failure_priors"
       ],
       "experiment": "E74 coldstart",
       "result_file": "research/e74_replication_results.json",
@@ -363,7 +363,7 @@
       "claim_id": "XFER-007",
       "statement": "Corrected, leak-free cold-start experiment: with priors built only on a held-out 30-session training pool and all arms scored on a fixed 12-session held-out test set (6,132 actions), the borrowed prior sits below chance at every history size (0.483) and never contributes, while local-only reaches 0.600 at N=2 and 0.656 at N=20, beating the borrowed prior by +0.114 [+0.040,+0.153] at N=2. 15 of 18 paired differences exclude zero. There is NO regime in which borrowing helps.",
       "papers": [
-        "paper1_agent_priors"
+        "paper1_failure_priors"
       ],
       "experiment": "E74 coldstart (corrected)",
       "result_file": "research/e1_coldstart_paired.json",
