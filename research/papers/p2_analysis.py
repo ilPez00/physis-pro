@@ -41,6 +41,22 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
+def _np_load_chunk(path):
+    """Load a cached embedding chunk, tolerating the zero-length files an
+    interrupted run leaves behind. np.load on an empty .npy raises EOFError,
+    which previously killed the entire embed pass; an unreadable chunk is
+    treated as absent so the revision is simply re-embedded.
+    """
+    import os as _os
+    try:
+        if _os.path.getsize(path) == 0:
+            return np.empty(0)
+        return np.load(path)
+    except (EOFError, ValueError, OSError):
+        return np.empty(0)
+
+
+
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(REPO, "research", "trajectories_external")
 SHARDS = os.path.join(OUT, "shards")
@@ -110,7 +126,7 @@ def embed_nomic(texts, batch=8, workers=1):
     n_done = 0
     for f in done:
         try:
-            n_done += len(np.load(os.path.join(d, f)))
+            n_done += len(_np_load_chunk(os.path.join(d, f)))
         except (ValueError, OSError):
             break
     n_done = min(n_done, len(texts))
@@ -151,7 +167,7 @@ def embed_nomic(texts, batch=8, workers=1):
             print(f"    {n_done + (k + 1) * batch}/{len(texts)}", flush=True)
 
     files = sorted(f for f in os.listdir(d) if f.endswith(".npy"))
-    A = np.concatenate([np.load(os.path.join(d, f)) for f in files], axis=0)
+    A = np.concatenate([_np_load_chunk(os.path.join(d, f)) for f in files], axis=0)
     return A[:len(texts)]
 
 
