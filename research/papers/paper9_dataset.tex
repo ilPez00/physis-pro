@@ -29,7 +29,12 @@ taxonomy is load-bearing. Under leave-one-session-out evaluation the
 harnesses, while the coarser 133-way tool label and a 131-way command
 prefix label collapse to 0.446--0.525, near chance. A dataset that shipped
 tool-level granularity would carry almost none of the signal. We release
-the corpus, the extraction scripts, and the analysis code.
+We release the corpus, the extraction scripts, and the analysis code. The
+claimed contribution is deliberately smaller than ``we collected coding-agent
+traces'': it is the per-action outcome label, a single normalised action-kind
+taxonomy spanning four harnesses, and the demonstration that granularity is
+what carries the signal. Published corpora such as SWE-chat are an order of
+magnitude larger than this one.
 \end{abstract}
 
 \section{Motivation}
@@ -46,6 +51,64 @@ predicting which actions will fail from the agent's own history, and
 comparing failure structure across agents. This is the analysis the corpus
 is built for, and it is why the outcome label is per-action rather than
 per-task.
+
+\section{Related work: what other coding-agent corpora record}
+\label{sec:related}
+
+Coding-agent trace data now exists in quantity, and this corpus is not
+distinguished by size. We position it precisely, because the honest claim is
+narrower than ``we collected agent traces''.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llllll}
+\toprule
+\textbf{Corpus} & \textbf{Scale} & \textbf{Per-action} & \textbf{Outcome} & \textbf{Normalised} & \textbf{Multi-} \\
+ & & \textbf{records} & \textbf{per action} & \textbf{taxonomy} & \textbf{harness} \\
+\midrule
+SWE-chat \cite{baumann2026swechat} & 6{,}000 sessions, 355k tool calls & yes & no & no & yes \\
+SWE-agent \texttt{.traj} \cite{yang2024sweagent} & per benchmark instance & yes & no & no & no \\
+Thought--action--result \cite{zhang2025tar} & 120 trajectories, 2{,}822 steps & yes & no & partial & yes \\
+MAST telemetry \cite{cemri2025mast} & 639k steps, 23{,}624 runs & aggregates & run-level & 14 modes & no \\
+AFTraj-2K \cite{zbox2026afraj} & 2{,}276 trajectories & yes & one step only & no & multi-domain \\
+Failure atlas & 120 synthetic traces & yes & synthetic & 12 modes & synthetic \\
+\midrule
+\textbf{This corpus} & 402 sessions, 75{,}933 actions & yes & \textbf{yes} & \textbf{871-way} & \textbf{4, 3 machines} \\
+\bottomrule
+\end{tabular}
+\caption{Positioning against published coding-agent trace corpora, as reported
+by their authors. ``Outcome per action'' asks whether an individual tool call
+carries a success/failure label in the released data; SWE-chat and the MAST
+application label sessions, runs or turns.}
+\label{tab:related}
+\end{table}
+
+Three distinctions are worth stating.
+
+\textbf{Scale is against us.} SWE-chat reports 6{,}000 sessions and 355{,}000
+tool calls from real users in the wild, roughly an order of magnitude more
+sessions than we release. Any claim that this corpus is valuable because it is
+large would be false, and we do not make it. Our sessions are one user's work
+on three machines.
+
+\textbf{Outcome labels are per action here, not per task.} Benchmarks score
+whether a patch resolves an issue \cite{jimenez2024swebench}; SWE-chat's
+reported outcome measures are turn- and session-level (pushback, survival of
+agent code into commits); the MAST application assigns a failure mode per
+\emph{run}. None of these releases attaches a success/failure label to the
+individual tool call, which is the unit our failure-prior analysis requires.
+
+\textbf{The taxonomy is normalised across harnesses.} The four harnesses record
+failure four different ways (Section~\ref{sec:heterogeneity}), so a shared
+action-kind vocabulary has to be constructed rather than read off. Per-harness
+taxonomies exist; a single normalised one spanning Claude Code, Codex, Cline
+and OpenCode does not, to our knowledge, and this is the property the kill test
+in Section~\ref{sec:killtest} shows to be load-bearing.
+
+We could not locate a trace corpus published under the name \emph{TraceLab}
+during this pass; if one exists we have not positioned against it and the
+omission is ours.
 
 \section{Corpus construction}
 
@@ -137,6 +200,7 @@ structure is what per-action outcome labels make visible, and it is the
 corpus's justification.
 
 \section{The kill test: does label granularity matter?}
+\label{sec:killtest}
 \label{sec:kill}
 
 A dataset release should be tested against the cheapest objection to its
@@ -182,6 +246,7 @@ report that rather than hide it, and it is the reason we recommend a
 minimum session count for any consumer of the corpus.
 
 \section{Label heterogeneity}
+\label{sec:heterogeneity}
 
 The four harnesses do not measure the same thing, and consumers must not
 pool them without deciding what to do about it:
@@ -292,7 +357,8 @@ The release is justified by a test we ran against our own interest: the
 871-way action-kind taxonomy carries the signal (AUC 0.627--0.751), and
 coarsening it to tool or prefix collapses performance to chance
 (0.446--0.525). The corpus's value is therefore in its granularity, not
-merely in its size, and we report the assumptions a consumer must accept
+merely in its size --- and not in its size at all, since SWE-chat is far
+larger --- and we report the assumptions a consumer must accept
 --- one user, one fortnight, four different failure labels, and
 session-level clustering --- rather than leaving them to be discovered.
 
@@ -302,6 +368,39 @@ Jimenez, C.~E., Yang, J., Wettig, A., Yao, S., Pei, K., Press, O., \&
 Narasimhan, K. (2024).
 \newblock SWE-bench: Can language models resolve real-world GitHub issues?
 \newblock \emph{ICLR 2024}. arXiv:2310.06770.
+
+\bibitem[Baumann et al.(2026)]{baumann2026swechat}
+Baumann, J., Padmakumar, V., Li, X., Yang, J., Yang, D., \& Koyejo, S.
+(2026).
+\newblock SWE-chat: Coding agent interactions from real users in the wild.
+\newblock arXiv:2604.20779.
+
+\bibitem[Yang et al.(2024)]{yang2024sweagent}
+Yang, J., Jimenez, C.~E., Wettig, A., Lieret, K., Yao, S., Narasimhan, K.,
+\& Press, O. (2024).
+\newblock SWE-agent: Agent--computer interfaces enable automated software
+engineering.
+\newblock arXiv:2405.15793. Trajectory format documented in the SWE-agent
+repository (\texttt{docs/usage/trajectories.md}).
+
+\bibitem[Zhang et al.(2025)]{zhang2025tar}
+Zhang, Y. et al. (2025).
+\newblock Understanding software engineering agents: a study of
+thought--action--result trajectories.
+\newblock arXiv:2506.18824.
+
+\bibitem[Cemri et al.(2025)]{cemri2025mast}
+Cemri, M. et al. (2025).
+\newblock Why do multi-agent LLM systems fail?
+\newblock arXiv:2503.13657. The MAST taxonomy, applied at production scale by
+a platform operator to 639{,}381 execution steps.
+
+\bibitem[AgentForesight(2026)]{zbox2026afraj}
+AgentForesight (2026).
+\newblock AFTraj-2K: a corpus of 2{,}276 multi-agent trajectories annotated at
+the decisive error step.
+\newblock Dataset release accompanying the AgentForesight online-auditing
+work.
 \end{thebibliography}
 
 \end{document}

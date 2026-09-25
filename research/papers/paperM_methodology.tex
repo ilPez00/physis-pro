@@ -390,6 +390,124 @@ In four of these five the outcome changed from positive to negative or
 artifact. That is the workflow's value, and it is also its cost: it
 converted apparent successes into documented failures.
 
+\section{Falsifying the verifier}
+\label{sec:falsify}
+
+The apparatus this paper proposes is itself an artifact, so it gets the same
+treatment it prescribes for everything else. This section reports the cases
+where the verifier failed, because a checker with no kill tests is a
+comfortable way of not finding things.
+
+\subsection{The executable ledger, and attempts to violate it}
+
+The workflow's invariants are executed, not documented. The current suite is
+\textbf{nine invariants, zero failures}
+(\texttt{research/methodology\_validation.json}, checked against 15 registered
+claims):
+
+\begin{enumerate}
+\item \textbf{I1 threshold frozen} --- no result may change its own decision
+  rule after observation.
+\item \textbf{I2 null registered} --- every claim carries a
+  construction-matched null before it runs.
+\item \textbf{I3 STOP prevents execution} --- a power-gate STOP must not be
+  followed by a run.
+\item \textbf{I4 superseded addressable} --- a superseded claim must still
+  resolve to something, not vanish.
+\item \textbf{I5 artifact resolves} --- every claim's result file exists.
+\item \textbf{I6 provenance} --- every claim records a source script and a
+  commit.
+\item \textbf{I7 manuscript numbers have IDs} --- no headline number lives
+  only as hand-copied prose.
+\item \textbf{I8 missing provenance fails} --- validation must refuse an
+  incomplete record.
+\item \textbf{I9 artifact parameters match} --- catches an artifact silently
+  replaced by a differently-parameterised run.
+\end{enumerate}
+
+I8 is the one that proves the suite can fail. A deliberately stripped record
+is submitted to it on every run, and it must reject it; it currently catches
+three violations from that probe (missing artifact file, absent
+\texttt{source\_script}, absent \texttt{git\_commit}). Without that probe,
+``zero failures'' would be indistinguishable from a suite that never fires.
+
+I3 is the invariant the workflow cannot satisfy. Case~12 overrode the
+pre-flight gate and the run proceeded; the item above records the violation
+rather than preventing it. The suite is honest about this: I3 reports
+\texttt{executed: false} against the live ledger, not an enforcement count.
+
+\subsection{Where the verifier itself was wrong}
+
+Four failures, each found by using the thing rather than reviewing it:
+
+\begin{enumerate}
+\item \textbf{A stale artifact overwrote a corrected one.} A fixed output
+  path plus a long-running process is a race: the process holds the code it
+  started with, so a late-finishing run writes the \emph{old} verdict over
+  the corrected artifact. This happened \textbf{four times in one session}
+  on the Empedocles finite-size sweep, and once it printed the opposite
+  conclusion. The fix was not a faster editor but an overwrite guard: the
+  artifact now records \texttt{classifier\_version}, and a process running an
+  older classifier refuses to replace a newer artifact, writing a side file
+  instead.
+\item \textbf{The interpreter contradicted its own numbers.} The first
+  version of that same classifier emitted ``consistent with finite-size
+  critical scaling'' while the diagnostics it had just computed showed the
+  susceptibility peak sitting at the edge of the parameter sweep and a
+  transition width that \emph{broadened} with system size. Both facts are
+  incompatible with the verdict the classifier printed. The classification
+  logic was rewritten (version 2, which tests the boundary condition
+  explicitly and returns ``NO TRANSITION LOCATED''). This is the cleanest
+  available example of why a machine-generated interpretation is a
+  measurement like any other, and it is cross-referenced from Paper~10.
+\item \textbf{The manuscript checker silently blessed a wrong number.} The
+  script that traces Paper~4's figures back to result files contained a dead
+  index expression (\texttt{[-1][-1] if False else ...}) that made one
+  arithmetic derivation unreachable, so a number the paper had withdrawn
+  (\texttt{+0.576}) was still being accepted as explained. The checker
+  reported success. It was only found by asking where a specific printed
+  number came from. Its replacement asserts the derivation instead of
+  tolerating it.
+\item \textbf{The new checker had two bugs of its own.} The cross-rater
+  consistency checker was wrong on first run in two independent ways: it
+  counted distinct entry names over the wrong row subset, and it built a
+  rectangular contingency matrix for a chance-agreement term that requires a
+  square one (the two raters use 57 and 42 categories respectively). Both
+  were caught by running it, not by reading it, and both are now pinned by
+  assertions.
+\end{enumerate}
+
+\subsection{Provenance that is present and wrong}
+
+An invariant can pass while the record it checks is stale. The ledger
+snapshot used above records commit \texttt{8232042}; the repository has
+since moved on. Nothing in the suite fails on this, because the invariant
+checks that provenance \emph{exists}, not that it is \emph{current}. That
+gap is deliberate and named: a claim whose artifact predates the last
+relevant code change should be re-run, and detecting that requires a
+staleness relation the ledger does not yet carry.
+
+\subsection{The principle}
+
+A verifier needs its own kill tests, in the same sense that a classifier
+needs a positive control. Concretely:
+
+\begin{itemize}
+\item every invariant must have a case that makes it fail, exercised on
+  every run (I8's stripped-record probe);
+\item every artifact path must be version-guarded against being overwritten
+  by an older producer;
+\item every derived number in a manuscript must re-derive, not merely
+  reconcile to a tolerance;
+\item every automated verdict must be compared against the numbers that
+  produced it, because those are what the reader can check.
+\end{itemize}
+
+The Empedocles control battery (Paper~10) makes the same point from the other
+side: an instrument that cannot fire is not a falsifier. This section is the
+claim that the apparatus generating that control battery is subject to the
+same rule.
+
 \section{The empirical basis}
 
 The catalog is not assembled by inspection from memory. Each case resolves
@@ -446,6 +564,33 @@ methods \cite{clauset2009powerlaw}. We mention it because a
 heavy-tailed-looking sample is the most common route by which a null
 result is mistaken for a positive one, and because a fit compared against
 only one alternative family is not a test.
+
+\section{Position against the current verification-gap literature}
+
+A recent survey of autonomous research agents codes 26 systems across seven
+audit dimensions and finds that in 24 runnable systems, \textbf{83\% release
+code while only 38\% release the seeds or execution traces needed to reproduce
+a run, and 38\% report any novelty-verification method}; among nine closed-loop
+autonomous systems, seven are mechanical reruns and none demonstrates an
+externally validated in-loop oracle \cite{ding2026verificationgap}. A companion
+position paper argues that verification, attribution and reproducibility
+infrastructure break down at agent scale \cite{mo2026paradigm}, and cites four
+observed failure modes in AI-scientist systems: benchmark cherry-picking, data
+leakage, metric misuse and post-hoc selection bias.
+
+The present work is best read as a concrete instance of that gap and a partial
+answer to it at the scale of one programme. The cases above are exactly the
+failure modes that literature names --- leakage (the withdrawn Empedocles
+cold-start curve), post-hoc selection (Case~12's override of the pre-flight
+gate), and metric misuse (the classifier that reported critical scaling against
+its own numbers) --- but each is recorded with an artifact, a verdict, and a
+retained failed branch, which is the disclosure the survey reports as rare.
+
+We do not claim to close the gap. Our ledger holds twelve cases from one
+programme and is maintained by the same agent that runs the experiments. What
+the survey's coding dimensions do not audit is whether a released verifier was
+itself falsified; Section~\ref{sec:falsify} is an attempt to answer that
+question for this one.
 
 \section{Limitations}
 
@@ -506,10 +651,28 @@ would have looked like a first guess rather than the end of a search.
 We state plainly what this is not: not a proof that AI-assisted research is
 worse than human research, not an implementation of AGM belief revision,
 and not a prevention system. It is an instrumentation proposal with twelve
-worked examples, and its main result is that in four of the five cases
-where it was applied end-to-end, the answer changed sign.
+worked examples, and its main result is that in four of the five cases where
+it was applied end-to-end the apparent positive conclusion was overturned,
+reclassified as an artifact, or rendered non-promotable --- by a control, a
+pre-registered null, a provenance failure or a protocol violation, and never
+by a change of preference. We avoid the phrase ``the answer changed sign''
+because the outcomes are not one kind of event: an artifact, an underpowered
+run, a protocol violation and a reclassification are different failures and
+conflating them would hide which safeguard did the work.
 
 \begin{thebibliography}{99}
+
+\bibitem[Ding et al.(2026)]{ding2026verificationgap}
+Ding, T., Nannapaneni, A., Liu, B., \& Zhang, L. (2026).
+\newblock Autonomous research agents: a survey of AI scientists and the
+verification gap.
+\newblock arXiv:2608.05179.
+
+\bibitem[Mo(2026)]{mo2026paradigm}
+Mo, B. (2026).
+\newblock Position: the age of AI agents demands a new scientific paradigm to
+sustain trustworthy science.
+\newblock arXiv:2607.26064.
 
 \bibitem[Alchourr\'on \& Makinson(1982)]{agm1982logic}
 Alchourr\'on, C.~E., \& Makinson, D.~C. (1982).

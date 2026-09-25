@@ -329,6 +329,18 @@ number, and on the exact cell it is worth no more than the trivial baseline of
 the three most common cells until the rater has made a few hundred decisions.
 What transfers is the axis, not the cell.
 
+\textbf{How this compares to published annotation agreement.} Reported
+model--model agreement on annotation tasks sits around $\kappa = 0.32$--$0.70$,
+and human--human agreement around $0.49$--$0.57$, across several recent
+studies. Our crossed-rater exact-cell agreement of $0.202$ is \emph{below} that
+range, which is consistent with the finding above that fine-grained cell
+identity is unusually rater-specific here. Two caveats come with the
+comparison: agreement in that literature is higher within a model family than
+across families, and at least one otherwise-accurate rater has been shown to be
+unstable on re-run, so a single measurement per rater cannot separate a stable
+filing policy from run-to-run instability. See
+\texttt{related\_work/paper4\_propose\_certify\_RELATED\_WORK\_AUDIT.md}.
+
 \textbf{Limits.} Two raters, both language models, and the first of them
 (Claude) also produced the replacement filing. Under ``is the machine right''
 a self-consistent rater is a confound. Under this framing it is the target ---

@@ -27,7 +27,17 @@ setting originally reported as critical the two are statistically
 indistinguishable, which is the absence of evidence for criticality rather
 than evidence for it. We further find that the regime label at the claimed
 critical band is not stable across seeds. The original positive result was
-a single-seed artifact of a heavy-tailed snapshot. We report the negative
+a single-seed artifact of a heavy-tailed snapshot. We then run the two
+things this negative result was previously unable to supply. Control
+systems through the same fitting code show the instrument is sensitive but
+\emph{not specific}: a known-critical branching process is detected at
+12/12 seeds with the analytic exponent, and 2D percolation at $p_c$ at
+10/12, but three of five known-negative controls are falsely called power
+laws --- including wide lognormals, which the pipeline prefers to the
+truth. That bias runs in favour of the original claim, so the refutation
+is conservative with respect to it. A finite-size sweep at
+$N \in \{100, 300, 1000, 3000\}$ locates no transition inside the sweep
+and yields no interpretable critical exponent. We report the negative
 result, keep the falsified claim visible, and state what a criticality
 claim in a toy dynamical system would actually require.
 \end{abstract}
@@ -150,6 +160,7 @@ measurement was correctly taken, and correctly flagged as insufficient.
 It became a claim only in the retelling.
 
 \section{What a criticality claim would require}
+\label{sec:controls}
 
 We state this so the refutation has a constructive form. A defensible claim
 of criticality in a system like this needs, at minimum:
@@ -170,11 +181,126 @@ of criticality in a system like this needs, at minimum:
   criticality when it is present.
 \end{enumerate}
 
+This paper now satisfies conditions 2 and 5 for the Empedocles field: the
+fitting is done against a lognormal alternative with a principled cutoff, and
+the control battery of Section~\ref{sec:controls} exercises the pipeline
+against systems whose answer is known. Conditions 1, 3 and 4 remain unmet by
+the field itself --- the regime label is seed-unstable, the finite-size sweep
+locates no transition, and no order parameter scaling is available --- which is
+precisely why the criticality claim fails rather than merely going unsupported.
+
 Point 5 is the one we regard as most valuable and least often done: without
 a positive control, a null result cannot be distinguished from an
-insensitive instrument. We have not run it, so we cannot claim our pipeline
-would have detected a genuine power law; we claim only that it does not
-detect one here.
+insensitive instrument. \textbf{We have now run it}, through the \emph{same}
+fitting code that produced the Empedocles verdict
+(\texttt{fit\_empedocles.fit\_sample}, imported rather than
+reimplemented --- a control on a different pipeline would prove nothing
+about this instrument), at 12 seeds per control and 6000 clusters per seed.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llrrl}
+\toprule
+\textbf{Control} & \textbf{Truth} & \textbf{PL wins} & \textbf{expected} & \textbf{verdict} \\
+\midrule
+branching, mean 1.0   & power law ($\alpha=3/2$) & 12/12 & 1.5   & \textbf{detected} \\
+2D percolation $p_c$  & power law ($\tau\approx2.06$) & 10/12 & --- & \textbf{detected} \\
+\midrule
+branching, mean 0.7   & exponential & 9/12  & 0/12 & \textbf{false positive} \\
+branching, mean 1.3   & giant + finite tail & 0/12 & 0/12 & quiet \\
+lognormal $\sigma=0.6$ & lognormal & 0/12 & 0/12 & quiet \\
+lognormal $\sigma=1.2$ & lognormal & 12/12 & 0/12 & \textbf{false positive} \\
+lognormal $\sigma=2.0$ & lognormal & 12/12 & 0/12 & \textbf{false positive} \\
+\bottomrule
+\end{tabular}
+\caption{Control systems through the same fitting pipeline. ``PL wins'' is
+the fraction of 12 seeds on which the pipeline returns ``power law beats
+lognormal''. The positive control recovers $\alpha = 1.497$ against the
+mean-field expectation 1.5.}
+\label{tab:controls}
+\end{table}
+
+The instrument is \textbf{sensitive and not specific}. It detects a genuine
+power law at 12/12 where the exponent is known analytically, and at 10/12 for
+2D percolation. But three of the five known-negative controls are called power
+laws, and the two clearest failures are exactly the shapes that matter here:
+wide lognormals ($\sigma = 1.2$ and $2.0$) are called power laws on
+\emph{every} seed. The subcritical branching process --- exponential-tailed,
+and thus maximally unlike a power law --- is misclassified on 9 of 12 seeds.
+
+This strengthens rather than weakens the Empedocles result, and the direction
+matters. The bias runs \emph{towards} finding power laws in heavy-tailed
+non-power-law data, which is the direction that would have helped the original
+criticality claim. Yet on Empedocles the pipeline never returns a significant
+power-law win, and at the claimed critical setting it calls the two models
+indistinguishable. A false-negative-prone instrument would make the refutation
+vacuous; a false-positive-prone one makes it conservative. That is the case
+here, so the original power-law/SOC claim is unsupported and does not survive
+the fitting/control battery.
+
+We do \textbf{not} conclude that the true distribution is lognormal. The
+controls show the pipeline cannot reliably separate lognormal from power law at
+this cluster count, so the honest statement is narrower: neither family is
+established, and the criticality claim is not supportable.
+
+\section{Finite-size scaling}
+
+The refutation above rests on a single node count ($N = 300$), which cannot
+separate an ordinary sharp transition from genuine finite-size critical
+scaling. We therefore swept $N \in \{100, 300, 1000, 3000\}$, 16 seeds per
+point (8 at $N = 3000$), and computed the standard scaling diagnostics.
+
+\textbf{No critical exponent is reported, because none is interpretable.}
+Three diagnostics each independently block a scaling claim:
+
+\begin{enumerate}
+\item \textbf{No transition is located inside the sweep.} The
+  susceptibility-like peak sits at the \emph{edge} of the nemesis grid at
+  \emph{every} node count, so no pseudocritical point $\text{nemesis}_c(N)$
+  was actually measured. The pipeline's own verdict is ``NO TRANSITION
+  LOCATED: chi peaks at the edge of the nemesis grid at every node count, so
+  no critical point was found inside the sweep and no scaling can be read
+  from it.'' Fitting an exponent to a boundary artefact would produce a number
+  with no referent.
+\item \textbf{The statistic scales trivially.} Regressing $\chi/N$ on $N$
+  gives a log-log slope of $0.997$ --- the susceptibility-like quantity grows
+  linearly with $N$, which is what a non-critical fluctuation measure does,
+  not the non-trivial exponent critical scaling would require.
+\item \textbf{The transition broadens instead of sharpening.} The transition
+  width grows with $N$ (log-log slope $+0.794$). Critical scaling requires the
+  opposite: the transition should sharpen as the system grows.
+\end{enumerate}
+
+A fourth issue is a confound rather than a diagnostic. The interaction radii
+(\texttt{eros\_radius} 0.30, \texttt{nemesis\_radius} 0.20) are held fixed
+while $N$ changes, so the mean number of neighbours per node is not held
+constant: any measured $N$-dependence mixes system size with connectivity.
+A clean finite-size study would rescale the radius with density, which this
+sweep does not do.
+
+We also record a naming point the same script makes: even if critical scaling
+had been found, that is \emph{not} self-organised criticality. SOC requires the
+system to reach the critical point without an external control parameter, and
+\texttt{nemesis} is one. At best this system could host a \emph{tuned}
+transition, which is a different claim.
+
+\subsection*{An automated classifier reported the opposite of its own numbers}
+
+The first version of the finite-size classifier emitted ``consistent with
+finite-size critical scaling'' while the diagnostics it had just computed
+showed the peak at the sweep boundary and a broadening width. The classification
+was corrected (classifier version 2, which tests the boundary condition
+explicitly and returns ``NO TRANSITION LOCATED''), and the artifact now carries
+\texttt{classifier\_version} plus an overwrite guard: a process running an
+older classifier refuses to replace an artifact written by a newer one.
+
+That guard exists for a reason. In-flight runs launched before the fix
+overwrote corrected artifacts with the stale verdict \emph{four times in one
+session}, once printing the opposite conclusion. The lesson is not that the
+classifier was wrong but that a machine-generated interpretation is a
+measurement like any other and must be checked against the numbers that
+produced it. Paper~M treats this incident as a worked example.
 
 \section{What survives}
 
@@ -204,6 +330,13 @@ survives is narrower and better supported:
 \item The example is declared in \texttt{Cargo.toml} with
   \texttt{required-features = ["empedocles"]}, matching the two pre-existing
   Empedocles examples.
+\item Controls: \texttt{research/papers/p10\_controls.py} (imports
+  \texttt{fit\_empedocles.fit\_sample}, so the control and the verdict come
+  from one code path), writing \texttt{research/p10\_controls.json}.
+  Run as \texttt{python3 research/papers/p10\_controls.py --seeds 12}.
+\item Finite-size sweep: \texttt{research/papers/p10\_fss.py}, writing
+  \texttt{research/p10\_fss.json}; recompute diagnostics without re-running
+  the simulation with \texttt{--recompute}.
 \item The original single-seed example,
   \texttt{examples/empedocles\_criticality.rs}, is unchanged and still
   builds. Its output is the artifact this paper refutes; we have kept it

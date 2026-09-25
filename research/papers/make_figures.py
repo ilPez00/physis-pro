@@ -34,7 +34,7 @@ ax.set_xticks(range(len(harn)), harn, rotation=45, ha="right")
 ax.set_yticks(range(len(harn)), harn)
 ax.set_xlabel("target harness")
 ax.set_ylabel("source harness (prior)")
-ax.set_title("Transfer AUC: source prior -> target failures")
+ax.set_title("Transfer AUC: row = source prior, column = target failures\n(inference unit: session; values UNCORRECTED, see Holm results in text)")
 for i in range(len(harn)):
     for j in range(len(harn)):
         if not np.isnan(M[i, j]):
@@ -57,7 +57,15 @@ ax.axhline(0.5, ls="--", c="gray", lw=1, label="chance")
 ax.axhline(ys[0], ls=":", c="red", lw=1, label="transferred prior only")
 ax.set_xlabel("target sessions used for local prior")
 ax.set_ylabel("AUC")
-ax.set_title("Cold-start: opencode prior -> claude-code target")
+ax.set_title("WITHDRAWN (train/test leakage) — cold-start, opencode prior -> claude-code")
+# The rising curve below was produced by leakage: test sessions entered the
+# prior. It is kept only as an error record. Stamped so it cannot be lifted
+# out of context and used as a result figure.
+ax.text(0.5, 0.55, "WITHDRAWN", transform=ax.transAxes, fontsize=34,
+        color="red", alpha=0.30, ha="center", va="center", rotation=22,
+        fontweight="bold")
+ax.text(0.5, 0.42, "leaked: test sessions in the prior", transform=ax.transAxes,
+        fontsize=9, color="red", alpha=0.55, ha="center", va="center", rotation=22)
 ax.legend(fontsize=8)
 ax.grid(alpha=0.3)
 fig.tight_layout()
@@ -77,11 +85,13 @@ if len(x) > 1:
     m, b = np.polyfit(x, y, 1)
     xs_ = np.linspace(min(x), max(x), 50)
     ax.plot(xs_, m * xs_ + b, ls="--", c="gray", lw=1,
-            label=f"fit (r={np.corrcoef(x, y)[0,1]:.2f})")
+            label=f"exploratory fit (r={np.corrcoef(x, y)[0,1]:.2f}, n={len(x)})")
 ax.axhline(0.5, ls=":", c="black", lw=1, label="chance")
 ax.set_xlabel("coverage (fraction of target kinds seen in source)")
 ax.set_ylabel("transfer AUC")
-ax.set_title("Coverage vs transfer success (12 pairs)")
+ax.set_title("Coverage vs transfer success — EXPLORATORY\n(n=12 directional pairs; correlation, not causation)")
+ax.text(0.02, 0.02, f"exploratory: n={len(x)}, no causal claim",
+        transform=ax.transAxes, fontsize=7, color="gray")
 ax.legend(fontsize=8)
 ax.grid(alpha=0.3)
 fig.tight_layout()
