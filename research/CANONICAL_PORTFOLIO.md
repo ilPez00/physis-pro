@@ -8,7 +8,7 @@ Live papers, one file each, all compiling clean (verified 2026-09-25).
 | B | Multi-Harness Coding-Agent Action Corpus | `papers/paper9_dataset.tex` | 5 | live — needs related-work positioning |
 | C | Operational Failure Priors Are Pair-Specific Across Coding-Agent Harnesses | `papers/paper1_failure_priors.tex` | 12 | live — merged this pass, gated |
 | D | Propose, Do Not Certify | `papers/paper4_propose_certify.tex` | 7 | live — strongest manuscript |
-| E | Semantic Trajectories | `papers/paper2_trajectories.tex` | 3 | **blocked** — external replication analysis not run |
+| E | Low-Dimensional, Non-Lexical Trajectories of Evolving Software Objects | `papers/paper2_trajectories.tex` | 3 | **live (narrowed)** — dimension + non-lexical direction hold; identity dropped as semantic evidence; no prediction claim |
 | F | Empedocles | `papers/paper10_empedocles.tex` | 4 | live — needs controls + FSS integrated |
 | — | Representation Instability in Induced Ontologies | `papers/paper3_ontology_instability.tex` | 4 | **superseded** — banner added |
 

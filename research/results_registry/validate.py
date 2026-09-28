@@ -148,6 +148,32 @@ def cross_paper_checks(claims):
         else:
             fail(f"paper9 does not state direction split {wg}/{wl} (derived {g}/{l})")
 
+    # ---- P2: the external replication narrowed the paper. Guard the two
+    # claims it no longer supports, and require the one it now rests on.
+    try:
+        p2 = open(os.path.join(PAPERS, "paper2_trajectories.tex")).read()
+    except OSError:
+        p2 = ""
+    if not p2:
+        warns.append("paper2_trajectories.tex not found")
+    else:
+        if "p2_results.json" in p2 or "p2\\_results.json" in p2:
+            ok("P2: cites the external replication artifact")
+        else:
+            fail("P2: does not cite research/trajectories_external/p2_results.json")
+        if "no operational prediction claim" in p2 or "not claimed" in p2:
+            ok("P2: declines the operational-prediction claim")
+        else:
+            warns.append("P2: operational-prediction disclaimer not found")
+        if "0.214" in p2 and "0.369" in p2:
+            ok("P2: reports the lexical gap medians against nomic (0.214 vs 0.369)")
+        else:
+            fail("P2: identity claim not shown against the lexical baselines")
+        if "isotropic" in p2:
+            ok("P2: dimensionality stated against the isotropic null")
+        else:
+            fail("P2: dimensionality stated without a null that can fail")
+
     # paper1's above-chance counts
     p1 = open(os.path.join(PAPERS, "paper1_failure_priors.tex")).read()
     for cid, n, phrase in (("XFER-002", bc["action_above"], "action-level"),

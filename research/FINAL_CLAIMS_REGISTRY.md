@@ -96,7 +96,15 @@ rewritten in this pass.
   (`methodology_validation.json`, recorded at commit 8232042 — behind HEAD
   `6462fd5`). Verifier-falsification section not yet written.
 - **B (paper9_dataset):** corpus counts in registry; related-work audit not yet run.
-- **E (paper2_trajectories):** external corpus **built** (10 repos;
-  `trajectories_external/corpus_manifest.json`) but the analysis artifact does
-  **not** exist. Claims "software objects are trajectories" and "2–3
-  dimensional" remain **unproven** — do not assert.
+- **E (paper2_trajectories):** external replication **run** — 434 files,
+  11,312 revisions, 10 repos, nomic 768-d
+  (`trajectories_external/p2_results.json`; `P2_DECISION.md`). Verdict is
+  three-way: **dimension holds** (PR 2.13, ER 3.06, all three statistics
+  7-10x more concentrated than an isotropic null — the earlier row-permutation
+  null could never fail and was replaced); **direction holds and is not
+  lexical** (corr(geo_trend, lex_trend) = -0.593, partial 0.232);
+  **identity does NOT hold as semantic evidence** (nomic gap median 0.214 vs
+  token-jaccard 0.369, edit 0.516) and no prediction test exists. The
+  manuscript was narrowed accordingly; it no longer asserts
+  "software objects are trajectories" unqualified.
+

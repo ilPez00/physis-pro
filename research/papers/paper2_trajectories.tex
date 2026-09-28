@@ -6,7 +6,8 @@
 \usepackage{hyperref}
 \usepackage{natbib}
 
-\title{Semantic Trajectories of Evolving Software Objects}
+\title{Low-Dimensional, Non-Lexical Trajectories of Evolving Software
+Objects}
 
 \author{Giovanni Pezzin \\ Physis Research Program}
 \date{\today}
@@ -15,17 +16,27 @@
 \maketitle
 
 \begin{abstract}
-Revisions of a single source file form a low-dimensional directed semantic
-trajectory in embedding space. We analyze six files from a Rust codebase
-and find that (1) within-object distances are 4--14$\times$ smaller than
-between-object distances, (2) five of six files show temporal direction
-(Spearman $\rho$ up to +0.976, outside a 2000-permutation shuffled-time
-null), and (3) the trajectories occupy 2--3 dimensions of the 768-dimensional
-embedding space (57--82\% of variance in the first two components). A sixth
-file (\texttt{quality.rs}) fails the direction test because it wanders and
-returns --- an honest failure mode that reveals the limits of trajectory
-analysis. Document-level identity survives; paragraph-level identity
-dissolves.
+Revisions of a single source file occupy a low-dimensional, temporally
+directed region of embedding space --- but the identity half of the usual
+trajectory story does not survive a trivial baseline. On an external
+replication of 434 source files and 11{,}312 revisions across ten public
+repositories in five languages, the participation ratio is 2.13 and the
+effective rank 3.06: 7--10$\times$ more concentrated than an isotropic cloud
+of the same shape, against a per-metric null. PC1+PC2 carry 0.843 of the
+variance against a null of 0.113. Direction is present and is \emph{not}
+text overlap: the geometric drift statistic anti-correlates with the lexical
+one ($\rho = -0.593$) and keeps a partial correlation with revision depth of
+0.232 after controlling for lexical adjacency. Identity, however, is not
+evidence for a semantic representation --- same-file revisions separate from
+cross-file revisions at 0.99 under nomic, but the trivial lexical baselines
+do the same (token-jaccard 0.988, edit distance 0.974) and separate them
+\emph{more} by gap median (0.369 and 0.516 against 0.214). We therefore keep
+the dimensional and directional claims, drop identity-as-semantic-evidence,
+and make no operational prediction claim: that experiment was never run.
+Earlier internal figures on six files (2--3 dimensions from 57--82\% raw
+PC1+PC2 variance, no null) are superseded --- raw explained variance cannot
+support a dimensionality claim, as the replication's first control
+demonstrated.
 \end{abstract}
 
 \section{Introduction}
@@ -110,8 +121,12 @@ stops being a clock.
 \subsection{Structure}
 
 The first two eigenvalues of the centered Gram matrix carry 0.569--0.817
-of the variance. These trajectories are 2--3-dimensional objects living in
-a 768-dimensional space: a spectrum with a knee, not noise.
+of the variance, and the files occupy few effective dimensions. This figure
+alone does \emph{not} establish low intrinsic dimension: a random walk in
+768 dimensions also concentrates variance, and an explained-variance fraction
+is invariant under permuting the revisions, so a row-shuffled null reproduces
+it exactly. Section~\ref{sec:external} reports the statistic against a null
+that can actually fail.
 
 \subsection{Granularity}
 
@@ -127,13 +142,85 @@ proceeds --- is a property of genre, not of text. A developmental document
 level ($\rho = +0.665$); a reference document (WHAT\_PHYSIS\_IS) does not
 ($\rho = +0.083$).
 
+\section{External replication}\label{sec:external}
+
+The six-file result was a single repository and one embedder. We replicated
+the same three tests on ten public repositories (ripgrep, serde, requests,
+flask and others; C, C++, JS, Python, Rust): 434 source files, 11{,}312
+revisions. Representation is nomic-embed-text (768-d) via a local ollama
+server --- BGE was unavailable on the replication host, so the embedder
+changed as well as the corpus. Inference unit is the file. Result:
+\texttt{research/trajectories\_external/p2\_results.json}; generator
+\texttt{research/papers/p2\_analysis.py --task all}.
+
+\subsection{Dimension: holds}
+
+Against an isotropic cloud of the same shape $n \times d$, all three
+statistics say the real spectra are far more concentrated:
+PC1+PC2 share 0.843 vs 0.113 (7.5$\times$), participation ratio 2.127 vs
+22.362 (10.5$\times$), effective rank 3.063 vs 22.674 (7.4$\times$). The
+participation ratio of 2.13 and effective rank of 3.06 are what ``2--3
+dimensional'' should have meant in Section~\ref{tab:trajectories}; the
+direction of the comparison differs by statistic, since a \emph{low}
+participation ratio is what concentration means.
+
+\subsection{Direction: holds, and is not lexical}
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+\textbf{Quantity} & \textbf{Value} \\
+\midrule
+corr(geometric adjacency, lexical adjacency) & $+0.826$ \\
+corr(geometric trend, lexical trend) & $-0.593$ \\
+partial corr(geometric adjacency, $n_{rev}$ $|$ lexical adjacency) & $+0.232$ \\
+median geometric adjacency & $0.993$ \\
+median lexical adjacency & $0.941$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The geometric temporal statistic does not merely survive removing the text:
+it points the opposite way to the lexical trend ($-0.593$) and keeps a
+partial correlation with revision depth of 0.232. This is the part of the
+trajectory claim that a text-overlap baseline cannot reproduce.
+
+\subsection{Identity: does not hold as semantic evidence}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Representation} & \textbf{frac. same closer} & \textbf{CI95} & \textbf{gap median} \\
+\midrule
+nomic (768-d) & 0.9906 & [0.976, 0.996] & 0.214 \\
+token-jaccard (lexical) & 0.9883 & [0.973, 0.995] & 0.369 \\
+edit distance (lexical) & 0.9742 & [0.954, 0.986] & 0.516 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+All three separate same-object from cross-object revisions at 97--99\%, and
+on the gap medians the trivial baselines are \emph{better} than the
+embedding. Identity across revisions is real; it is not evidence for an
+embedding. The six-file version of this claim should be read the same way.
+
+\subsection{Prediction: not claimed}
+
+No next-step extrapolation test exists in the replication artifact (its keys
+are identity, overlap, dimensionality). We do not claim operational
+trajectory prediction, here or anywhere.
+
 \section{Discussion}
 
-\textbf{Software objects are trajectories.} The evidence supports the claim
-that revisions of a single file form a low-dimensional directed trajectory,
-not a set of independent points. The trajectory is 2--3 dimensional,
-temporally directed (in 5/6 cases), and bounded (within-object distance
-4--14$\times$ smaller than between-object).
+\textbf{What survives, and what does not.} Revisions of a single file do
+form a low-dimensional, temporally directed region: the dimension claim holds
+against a null that can fail, and the direction statistic is not reproducible
+by text overlap. But the third pillar of the original framing --- that
+identity is evidence for a semantic representation --- does not survive, and
+the operational prediction that the introduction hoped for was never tested.
+The honest claim is narrower than ``software objects are trajectories'': the
+trajectory is a real geometric property of the revision sequence, and what it
+is \emph{for} remains open.
 
 \textbf{The failure mode is informative.} \texttt{quality.rs} fails the
 direction test because it wanders and returns. This is the honest failure
@@ -151,7 +238,9 @@ pooling a project into one vector destroys signal.
 files, one metadata axis (commit time). The trajectory instrument is
 available as \texttt{physis-core/examples/reference\_spectrum.rs}; the
 harness is \texttt{benchmarks/conatus/e78\_reference\_spectrum.py}. The
-expansion to thousands of files across public repos (the P10 experiment
-in the portfolio) is the highest-priority external replication.
+The expansion to thousands of files across public repos that this paragraph
+previously named as the highest-priority replication has now been run
+(Section~\ref{sec:external}): 434 files, 11{,}312 revisions, ten repos. It is
+the source of the abstract's numbers, and it is what narrowed this paper.
 
 \end{document}
