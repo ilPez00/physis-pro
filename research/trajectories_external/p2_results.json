@@ -1,0 +1,124 @@
+{
+  "n_trajectories": 434,
+  "n_revisions": 11312,
+  "representation_note": "nomic via ollama (BGE unavailable: no torch / sentence-transformers / weight cache on this box)",
+  "inference_unit": "file",
+  "identity": {
+    "n_files": 426,
+    "nomic": {
+      "same_minus_cross": {
+        "n": 426,
+        "median": 0.2135632336139679,
+        "mean": 0.2169336654210874,
+        "p25": 0.1426420509815216,
+        "p75": 0.29051315784454346
+      },
+      "frac_same_closer": 0.9906103286384976,
+      "ci95": [
+        0.9761085351590424,
+        0.9963427119980497
+      ]
+    },
+    "tokjac": {
+      "same_minus_cross": {
+        "n": 426,
+        "median": 0.3691626280293591,
+        "mean": 0.39377177023813875,
+        "p25": 0.21289838816570858,
+        "p75": 0.5658358045005141
+      },
+      "frac_same_closer": 0.9882629107981221,
+      "ci95": [
+        0.9728218135210072,
+        0.9949765568554292
+      ]
+    },
+    "edit": {
+      "same_minus_cross": {
+        "n": 426,
+        "median": 0.5162961808261886,
+        "mean": 0.48601447771944717,
+        "p25": 0.30054363533170997,
+        "p75": 0.7011192792652553
+      },
+      "frac_same_closer": 0.9741784037558685,
+      "ci95": [
+        0.954359336597011,
+        0.9855217730954896
+      ]
+    },
+    "verdict": "identity holds if frac_same_closer is near 1 for the representation; the LEXICAL baselines are the bar dense geometry must clear"
+  },
+  "overlap": {
+    "n_files": 434,
+    "corr_geo_adj_vs_lex_adj": 0.8258391732154355,
+    "corr_geo_trend_vs_lex_trend": -0.5929855360605326,
+    "corr_geo_adj_vs_nrev": 0.4142470982767975,
+    "partial_geo_adj_nrev_given_lexadj": 0.2324610284778728,
+    "median_geo_adj": {
+      "n": 434,
+      "median": 0.9928856492042542,
+      "mean": 0.9887709043542361,
+      "p25": 0.9863141775131226,
+      "p75": 0.9962045550346375
+    },
+    "median_lex_adj": {
+      "n": 434,
+      "median": 0.9413541749442726,
+      "mean": 0.9259641606345108,
+      "p25": 0.9009294480812361,
+      "p75": 0.9695278839923341
+    },
+    "verdict": "if geometry's temporal statistics correlate near-perfectly with lexical overlap, the semantic claim adds nothing the text does not already contain"
+  },
+  "dimensionality": {
+    "n_files": 434,
+    "n_perm": 200,
+    "real_pc12": {
+      "n": 434,
+      "median": 0.8431565761566162,
+      "mean": 0.8359857206383059,
+      "p25": 0.7748673111200333,
+      "p75": 0.9127911627292633
+    },
+    "null_pc12": {
+      "n": 434,
+      "median": 0.11267767345532775,
+      "mean": 0.13772929869678027,
+      "p25": 0.0732500694040209,
+      "p75": 0.1837990451231599
+    },
+    "is_pc12_unusual": true,
+    "real_pr": {
+      "n": 434,
+      "median": 2.1274513006210327,
+      "mean": 2.2211201278844737,
+      "p25": 1.6167133152484894,
+      "p75": 2.6366575360298157
+    },
+    "null_pr": {
+      "n": 434,
+      "median": 22.36176295280457,
+      "mean": 24.119354466177906,
+      "p25": 12.795905919075013,
+      "p75": 37.15261998653412
+    },
+    "is_pr_unusual": true,
+    "real_er": {
+      "n": 434,
+      "median": 3.0627264455399845,
+      "mean": 3.220780179171242,
+      "p25": 2.242901715566656,
+      "p75": 3.910029911946699
+    },
+    "null_er": {
+      "n": 434,
+      "median": 22.673701406053098,
+      "mean": 24.57617641857057,
+      "p25": 12.896630954875492,
+      "p75": 38.04177944403218
+    },
+    "is_er_unusual": true,
+    "verdict": "low intrinsic dimension is supported only if the real spectrum is far more concentrated than an isotropic cloud of the same shape (n, d); PC1+PC2 explained variance alone cannot support it"
+  }
+}
