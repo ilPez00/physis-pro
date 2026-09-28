@@ -465,10 +465,18 @@ def task_dim(trajs, embs, rng, n_perm=200):
         if not real:
             continue
         nulls = []
+        # The null must perturb the POINT CLOUD, not merely its row order.
+        # PCA / participation-ratio / effective-rank are invariant under
+        # permutation, so the original row-permutation null reproduced the real
+        # value to 8 decimals (real_pc12 0.8431565762 vs null_pc12 0.8431565662)
+        # and is_pc12_unusual could never be True. Sample n isotropic unit
+        # vectors instead: same n, same d, no temporal structure.
+        n_v, dim_v = V.shape
+        nrng = np.random.default_rng(rng.randrange(2**32))
         for _ in range(n_perm):
-            # rng is a stdlib random.Random (seeded, line 508) -- no .permutation
-            idx = rng.sample(range(len(V)), len(V))
-            m = effective_metrics(V[idx])
+            g = nrng.normal(size=(n_v, dim_v))
+            g /= np.maximum(np.linalg.norm(g, axis=1, keepdims=True), 1e-12)
+            m = effective_metrics(g.astype(V.dtype))
             if m:
                 nulls.append(m)
         rows.append({
@@ -481,17 +489,27 @@ def task_dim(trajs, embs, rng, n_perm=200):
             "n_rev": real["n_rev"],
         })
     out = {"n_files": len(rows), "n_perm": n_perm}
-    for k in ("pc12", "pr", "er"):
+    # "More concentrated" is not the same direction for every statistic:
+    # a HIGH pc12 share means concentration, but a LOW participation ratio or
+    # effective rank does. Comparing all three with ">" reported
+    # is_pr_unusual=false for a real median of 2.13 against a null of 22.36 --
+    # i.e. it hid a 10x concentration because the test pointed the wrong way.
+    for k, higher_means_concentrated in (("pc12", True), ("pr", False),
+                                         ("er", False)):
         real = summarize([r[f"real_{k}"] for r in rows])
         null = summarize([r[f"null_{k}"] for r in rows])
         out[f"real_{k}"] = real
         out[f"null_{k}"] = null
-        out[f"is_{k}_unusual"] = bool(
-            real and null and real["median"] > null["median"] * 1.3)
+        if not (real and null):
+            out[f"is_{k}_unusual"] = False
+        elif higher_means_concentrated:
+            out[f"is_{k}_unusual"] = bool(real["median"] > null["median"] * 1.3)
+        else:
+            out[f"is_{k}_unusual"] = bool(real["median"] * 1.3 < null["median"])
     out["verdict"] = ("low intrinsic dimension is supported only if the real "
-                      "spectrum is far more concentrated than the "
-                      "order-shuffled null on the SAME point cloud; PC1+PC2 "
-                      "explained variance alone cannot support it")
+                      "spectrum is far more concentrated than an isotropic "
+                      "cloud of the same shape (n, d); PC1+PC2 explained "
+                      "variance alone cannot support it")
     return out, rows
 
 
@@ -545,6 +563,15 @@ def main():
                 fh.write(json.dumps(x) + "\n")
 
     path = os.path.join(OUT, "p2_results.json")
+    # --task <one> must not clobber the sections other runs produced.
+    if os.path.exists(path):
+        try:
+            with open(path) as fh:
+                prior = json.load(fh)
+            prior.update(results)
+            results = prior
+        except (OSError, ValueError):
+            pass
     with open(path, "w") as fh:
         json.dump(results, fh, indent=2)
     print(json.dumps({k: v for k, v in results.items()
