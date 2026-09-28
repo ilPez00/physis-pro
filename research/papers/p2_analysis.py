@@ -466,7 +466,8 @@ def task_dim(trajs, embs, rng, n_perm=200):
             continue
         nulls = []
         for _ in range(n_perm):
-            idx = rng.permutation(len(V))
+            # rng is a stdlib random.Random (seeded, line 508) -- no .permutation
+            idx = rng.sample(range(len(V)), len(V))
             m = effective_metrics(V[idx])
             if m:
                 nulls.append(m)
