@@ -55,3 +55,7 @@ benchmarks/behaviour/sessions.json
 # Runtime capability cache
 .physis-capabilities
 benchmarks/behaviour/actions*.json
+# Large generated vector blobs (regenerable, not source)
+research/mapper/*.f32
+research/mapper/*_vecs.json
+research/mapper/corpus.json
