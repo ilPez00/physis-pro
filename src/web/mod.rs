@@ -36,6 +36,7 @@ use crate::embed::clip::ClipEmbedder;
 use crate::embed::jina::JinaEmbedder;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::onnx::OnnxEmbedder;
+#[cfg(feature = "embed-onnx")]
 use crate::embed::registry::EmbedderRegistry;
 use crate::embed::RandomProjectionEmbedder;
 use crate::embed::VectorEmbed;
@@ -2687,9 +2688,12 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // is_available() checks local sessions only — never downloads.
     // Resolution order (mirrored in `embed_input`): slot first, then the text
     // embedder's own capability (joint model like jina serving the text slot).
+    #[cfg(feature = "embed-onnx")]
     let img_reg = EmbedderRegistry::from_config(&config.embedders, &config.onnx);
     let text_handles_images = embedder.handles_images();
+    #[cfg(feature = "embed-onnx")]
     let image_capable = img_reg.image.is_some() || text_handles_images;
+    #[cfg(feature = "embed-onnx")]
     let image_embedder_kind = img_reg
         .image_kind
         .or(if text_handles_images {
@@ -2698,7 +2702,14 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             None
         })
         .unwrap_or("none");
+    #[cfg(feature = "embed-onnx")]
     let image_embedder = img_reg.image;
+    #[cfg(not(feature = "embed-onnx"))]
+    let image_embedder: Option<Box<dyn VectorEmbed>> = None;
+    #[cfg(not(feature = "embed-onnx"))]
+    let image_embedder_kind: &str = "none";
+    #[cfg(not(feature = "embed-onnx"))]
+    let image_capable = text_handles_images;
     log::info!("image embedder slot: {image_embedder_kind} (capable={image_capable})");
 
     let shared = Arc::new(SharedCtx {
