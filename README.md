@@ -1,5 +1,11 @@
 # Physis Pro
 
+> **RETIRED (2026-10-04, operator directive).** `physis-pro` is no longer a development target. `physis-next`
+> (`~/dev/physis-next`) is the only Physis — the CLI `physis`, the `physis-*` crates, the MCP server
+> `physis serve`, and the commercial `commercial/physis-context-mcp`. praxisweb.xyz still proxies its Physis
+> surface to a running `physis-pro-web` process on `0.0.0.0:19876` until the migration off it completes
+> (not done). This README remains as a historical record of what the retired engine does today.
+
 Current development direction: [PHYSIS HUD — one world, many
 projections](docs/plans/2026-09-20-physis-hud.md) (2026-09-20), the HUD
 programme, which composes and extends [Physis as the impossible computer —

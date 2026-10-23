@@ -3,108 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Physis Intelligence — Upgrade Praxis with Ontological AI</title>
+  <title>Physis Pro — Retired (2026-10-04)</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    :root { --bg: #0a0a0f; --bg-subtle: #12121a; --fg: #e8e8f0; --muted: #6b6b80; --accent: #00d4aa; --accent-dim: #00a080; --card: #1a1a24; --border: #2a2a3a; }
+    :root { --bg: #0a0a0f; --bg-subtle: #12121a; --fg: #e8e8f0; --muted: #6b6b80; --accent: #00d4aa; --accent-dim: #00a080; --card: #1a1a24; --border: #2a2a3a; --warn: #e2b74c; }
     body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; line-height: 1.6; }
-    .container { max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+    .container { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
     h1 { font-size: 2rem; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 1rem; }
     .subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 2rem; }
+    .notice { background: #2a1a05; border: 1px solid var(--warn); border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
+    .notice strong { color: var(--warn); }
     .tier { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
-    .price { font-size: 2rem; font-weight: bold; color: var(--accent); margin: 0.5rem 0; display: block; }
-    .period { color: var(--muted); font-size: 0.8rem; margin-bottom: 1rem; }
-    .cta { background: var(--accent); color: var(--bg); padding: 0.75rem 1.5rem; border-radius: 4px; text-decoration: none; font-weight: 500; width: 100%; margin: 1rem 0; }
-    .cta:hover { background: var(--accent-dim); }
-    .features { color: var(--muted); font-size: 0.85rem; margin-top: 0.5rem; }
-    .badge { padding: 2px 6px; border-radius: 3px; font-size: 0.65rem; margin-left: 0.5rem; }
-    .badge-free { background: #4A90E2; }
     .section { margin: 2rem 0; }
-    @media (max-width: 480px) { h1 { font-size: 1.7rem; } }
+    .section h2 { font-size: 1.2rem; color: var(--accent); margin-bottom: 0.75rem; }
+    ul { color: var(--muted); font-size: 0.95rem; padding-left: 1.2rem; }
+    li { margin-bottom: 0.4rem; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg-subtle); padding: 0.15rem 0.35rem; border-radius: 4px; }
+    .footer { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem; }
+    .footer a { color: var(--accent-dim); }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Physis Intelligence</h1>
-    <div class="subtitle">Add ontological classification to your Praxis goal tracking</div>
+    <h1>Physis Pro — Retired</h1>
+    <div class="subtitle">`physis-pro` is no longer a development target. `physis-next` is the only Physis.</div>
+
+    <div class="notice">
+      <strong>Retired 2026-10-04 (operator directive).</strong>
+      The `physis-pro` industrial backoffice engine is retired. The only active Physis project is
+      <code>physis-next</code> (`~/dev/physis-next`) — the CLI <code>physis</code>, the
+      <code>physis-*</code> crates, the MCP server <code>physis serve</code>, and the commercial
+      <code>physis-context-mcp</code> product. See
+      <a href="https://github.com/ilPez00/physis-computer">physis-computer</a> for the public
+      engine and <code>/home/gio/dev/physis-next/README.md</code> for the product readme.
+    </div>
 
     <section class="section">
-      <h2>What You Get</h2>
-      <ul style="color: var(--muted); font-size: 0.95rem;">
-        <li>✓ Auto-classify goals into HEAL×LIFT, CONSTRUCT×WORK, FABRICATE×WORK, BOND×CREATE, STUDY×LEARN</li>
-        <li>✓ Multimodal understanding — upload images/videos, AI classifies context</li>
-        <li>✓ Quality tracking — success patterns, failure prevention insights</li>
-        <li>✓ Peer comparison — anonymous Praxis user data</li>
-        <li>✓ Ontology insights — which goal types correlate with better outcomes</li>
+      <h2>What still runs today</h2>
+      <p class="text-muted">praxisweb.xyz still proxies its Physis surface to a running <code>physis-pro-web</code> process on <code>0.0.0.0:19876</code> (<code>PHYSIS_API_URL</code>). The 8 machines the praxis demo exposes — chronos, topos, harmony, polis, soma, elenchus, lex, empedocles — exist only in that retired engine; <code>physis-next</code> has no machines. Migration off that process is <strong>not done</strong> and is the open work the retirement created.</p>
+    </section>
+
+    <section class="section">
+      <h2>Licence</h2>
+      <p>`physis-pro` was <strong>never Apache-2.0</strong>: its <code>LICENSE.txt</code> is a proprietary EULA ("licensed, not sold"). `physis-core` is Apache-2.0 per its manifest and is a separate crate.</p>
+    </section>
+
+    <section class="section">
+      <h2>Source</h2>
+      <ul>
+        <li>Current product: <code>/home/gio/dev/physis-next</code> (cloned canonical on omo/pansa)</li>
+        <li>Retired engine (historical record only): <code>/home/gio/physis-pro</code></li>
+        <li>Praxis surface (still proxies to the retired engine): <code>/home/gio/Praxis/praxis_webapp</code></li>
+        <li>crates.io <code>repository</code> field <code>ilPez00/physis-pro</code> is a <strong>404</strong>; GitHub <code>github.com/ilPez00/physis</code> is a <strong>404</strong>.</li>
       </ul>
     </section>
 
-    <section class="section" style="border-top: 1px solid var(--border); border-bottom: 1px solid var(--bottom);">
-      <h2>Pricing</h2>
-      <div style="display: grid; gap: 1rem;">
-        <div class="tier" style="border-color: var(--accent);">
-          <h3>Free Trial</h3>
-          <div class="price">$0</div>
-          <div class="period">30 days</div>
-          <ul class="features">
-            <li>Full ontology classification</li>
-            <li>3 image/video analyses</li>
-            <li>Quality tracking basics</li>
-            <li>No credit card needed</li>
-          </ul>
-          <a href="https://praxisweb.xyz/upgrade?physis=intelligence" class="cta">Start Free Trial</a>
-        </div>
-
-        <div class="tier">
-          <h3>Monthly</h3>
-          <div class="price">$20</div>
-          <div class="period">/mo</div>
-          <ul class="features">
-            <li>Unlimited ontology classification</li>
-            <li>Full quality tracking</li>
-            <li>Peer comparison data</li>
-            <li>Priority support</li>
-          </ul>
-          <a href="https://praxisweb.xyz/upgrade?physis=intelligence" class="cta">Subscribe $20/mo</a>
-        </div>
-
-        <div class="tier">
-          <h3>Annual</h3>
-          <div class="price">$199</div>
-          <div class="period">/yr</div>
-          <ul class="features">
-            <li>Save 2 months vs. monthly</li>
-            <li>All Monthly features</li>
-            <li>Annual-only analytics</li>
-          </ul>
-          <a href="https://praxisweb.xyz/upgrade?physis=intelligence" class="cta">Subscribe $199/yr</a>
-        </div>
-
-        <div class="tier">
-          <h3>Lifetime</h3>
-          <div class="price">$249</div>
-          <ul class="features">
-            <li>Forever access</li>
-            <li>All future features included</li>
-            <li>One-time payment</li>
-            <li>Includes future ontology packs</li>
-          </ul>
-          <a href="https://praxisweb.xyz/upgrade?physis=intelligence" class="cta">Buy Lifetime $249</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" style="background: var(--card); padding: 1.5rem; border-radius: 8px; margin: 2rem 0;">
-      <p style="color: var(--muted);">
-        First 10 users get a custom ontology tag for their primary goal type + 60-day trial.
-      </p>
-    </section>
-
-    <footer style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem;">
-      <p>Physis Pro v0.1.0 · Industrial Backoffice Intelligence</p>
-      <p><a href="https://github.com/ilPez00/physis-pro">Source on GitHub</a></p>
-      <p>physis-core is Apache-2.0; physis_pro is proprietary (EULA in LICENSE.txt).</p>
-    </footer>
+    <div class="footer">
+      <p>Physis Pro v0.1.0 (retired) · Industrial Backoffice Intelligence</p>
+      <p>Do not treat this page as a current product claim. Anything praxis says about classification, coherence, PDCA or the machines describes what the retired engine does today — accurate, but not future-proof.</p>
+    </div>
   </div>
 </body>
 </html>
