@@ -97,9 +97,10 @@ git submodule update --init --recursive
 
 **`.physis-vendor/` must never be committed.** It holds the Ed25519 licence
 signing key. The historical copy was removed from every branch and tag before
-this repository was made public, and the affected key was rotated. Keep the new
-`signing.key` offline; only `verifying.key` belongs in a build environment. The
-ignore rule stays in `.gitignore`.
+this repository was made public. Treat the removed key as compromised and rotate
+it before issuing new licences. Keep the new `signing.key` offline; only
+`verifying.key` belongs in a build environment. The ignore rule stays in
+`.gitignore`.
 
 ---
 
