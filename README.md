@@ -2,6 +2,13 @@
 
 **A Rust runtime engine for ontological classification, coherence tracking, and predictive ("dream") planning.**
 
+> **Status (2026-10-26): public, source-available, legacy.** This is the 2025
+> commercial engine, now published for reference and for the pieces `physis-next`
+> does not carry — notably the `physis-pro-voice` binary and the HTTP API on
+> `:19876`. `physis-next` is the active product for codebase observation,
+> context compilation, HUD/GUI and MCP. The `praxisweb.xyz/physis` demo still
+> proxies this process.
+
 > **What Physis *is* lives in [`docs/WHAT_PHYSIS_IS.md`](docs/WHAT_PHYSIS_IS.md).**
 > That file is canonical, and it exists because three attempts in one session to
 > compress this system into a single noun were all wrong. The paragraph below is
@@ -29,16 +36,17 @@ It runs as:
 
 ## License
 
-`physis-core` is released under the [MIT License](LICENSE).
+`physis-core` is released under the MIT License at
+[`ilPez00/physis-core`](https://github.com/ilPez00/physis-core).
 
-`physis_pro` (this crate) is dual-licensed:
-- **MIT** — for the open-source crate published on [crates.io](https://crates.io/crates/physis_pro).
-- **Proprietary EULA** — for commercial deployments. See `LICENSE.txt` for the full
-  commercial terms, including the licence-key requirement.
+`physis_pro` in this repository is **source-available, not open source**. See
+[`LICENSE.txt`](LICENSE.txt) for the proprietary EULA, including the licence-key
+requirement. Publication of this repository does not grant rights beyond that
+EULA. The runtime still enforces the commercial licence gate when
+`PHYSIS_LICENSE` is not set.
 
-The `physis-core` sub-crate remains MIT-only. When using `physis_pro` from crates.io,
-the MIT licence applies to the crate API; the runtime still enforces the commercial
-licence gate when `PHYSIS_LICENSE` is not set.
+If you only need the MIT-licensed embed/classify/quality core, use
+[`physis-core`](https://github.com/ilPez00/physis-core) directly.
 
 # I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 ---
@@ -57,7 +65,8 @@ This repository is the **only** working copy of the Physis engine.
 they were meant to run on. They drifted three development phases apart, they read
 as separate projects in any directory listing, and `pansa-ts` accumulated two
 commits that were reachable from no remote branch and were nearly lost — they are
-now on `node/pansa-deploy`. The `physis-global` repository is archived upstream.
+now on `node/pansa-deploy`. `physis-global` is kept as a deployment reference, not
+as a second canonical engine.
 
 If you genuinely need a second checkout, use a worktree rather than a clone, so
 there is one object store and one set of refs:
@@ -66,12 +75,19 @@ there is one object store and one set of refs:
 git worktree add ../physis-<node> <branch>
 ```
 
+Clone with the core submodule:
+
+```bash
+git clone --recursive https://github.com/ilPez00/physis-pro.git
+# or, in an existing checkout:
+git submodule update --init --recursive
+```
+
 **`.physis-vendor/` must never be committed.** It holds the Ed25519 licence
-signing key. A copy is currently tracked in this repository's history (introduced
-by `745a3d5`) and byte-identical material had propagated into the `air-ts` clone;
-removing it needs `git filter-repo --path .physis-vendor --invert-paths`, a
-force-push, and a re-clone of every working copy. The ignore rule is in
-`node/pansa-deploy`.
+signing key. The historical copy was removed from every branch and tag before
+this repository was made public, and the affected key was rotated. Keep the new
+`signing.key` offline; only `verifying.key` belongs in a build environment. The
+ignore rule stays in `.gitignore`.
 
 ---
 

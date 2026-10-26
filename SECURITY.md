@@ -13,6 +13,14 @@ A useful report says which version you tested, what an attacker controls, and
 what they achieve. A proof of concept helps but is not required; a precise
 description of the reachable path is worth more than a script.
 
+## Repository history rewrite (2026-10-26)
+
+Before this repository was made public, its history was rewritten to remove a
+licence signing key (`.physis-vendor/`) and leaked credentials from research
+corpora. The affected licence key was rotated. Commit hashes from before the
+rewrite are not valid against this repository; delete old clones and re-clone
+with `git clone --recursive`.
+
 ## Supported versions
 
 Only the latest published release of `physis_pro` receives security fixes.
