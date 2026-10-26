@@ -48,6 +48,18 @@ EULA. The runtime still enforces the commercial licence gate when
 If you only need the MIT-licensed embed/classify/quality core, use
 [`physis-core`](https://github.com/ilPez00/physis-core) directly.
 
+## Relationship to physis-core and physis-next
+
+- **`physis-core`** stays a separate submodule/crate. It is MIT-licensed and
+  versioned independently; folding its source into this repository would mix
+  licence boundaries and duplicate releases. `git submodule update --init` is
+  required for a source build.
+- **`physis-next`** is the active product: codebase observation, typed world
+  graph, context compiler, HUD/GUI, MCP. This repository remains the reference
+  implementation for the HTTP API, the live voice binary, and the original
+  coherence/dream runtime. New work should start in `physis-next` unless it
+  specifically needs those legacy surfaces.
+
 # I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 ---
 
