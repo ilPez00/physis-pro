@@ -1,5 +1,9 @@
 # Follow-up Generalmeccanica
 
+> SUPERSEDED 2026-11-18: la proposta non è mai stata inviata — esiste solo una
+> bozza auto-inviata il 2026-07-12 ("[BOZZA — sostituire destinatario]").
+> Lead chiuso su decisione dell'operatore. NON inviare questo follow-up.
+
 > Stato: proposta inviata (proposta-generalmecannica.md), silenzio >5 giorni lavorativi.
 > Azione: inviare questo follow-up da pezzingiovanniantonio@gmail.com → contatto GM.
 > (Nessun indirizzo GM salvato: recuperalo da chi ha ricevuto la proposta e incolla qui.)

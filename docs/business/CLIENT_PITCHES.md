@@ -10,14 +10,14 @@
 
 | Status | Count | Companies |
 |---|---|---|
-| proposal_in_progress | 1 | Generalmeccanica |
+| dropped | 1 | Generalmeccanica (proposal never sent; closed 2026-11-18) |
 | not_contacted | 28 | all below |
 
 ## Master pipeline table
 
 | Company | Tier | Vertical | Email | Confidence | Particular needs / tuning | Status |
 |---|---|---|---|---|---|---|
-| Generalmeccanica | ? | Process facilitator | *(recover from proposal recipient — none saved)* | n/a | Multi-client facilitation; needs Polis team-alignment + ticket triage (MAINTAIN/MOVE/PLAN); scale their service, don't replace it | proposal_in_progress |
+| Generalmeccanica | ? | Process facilitator | *(recover from proposal recipient — none saved)* | n/a | Multi-client facilitation; needs Polis team-alignment + ticket triage (MAINTAIN/MOVE/PLAN); scale their service, don't replace it | dropped 2026-11-18 — proposal never sent (only a self-addressed draft 2026-07-12 exists in Gmail); operator decision |
 | Moro Srl | A | Torneria CNC conto terzi, Padova | info@morosrltornerie.com | confirmed | Single-site turning shop; standard OEE/shift-report pitch; no MES — CSV export path only. Draft ready (outreach_moro_cbmec.md) | **sent 2026-08-26** |
 | MG Tecno Meccanica | A | Officina meccanica precisione, Veneto | info@mgtecnomeccanica.com | confirmed | Precision subcontracting; likely multi-machine small batches → micro-fermate & setup-loss Pareto angle | **sent 2026-08-26** |
 | Meccanica Marcato | A | Tornitura/fresatura, Padova | info@meccanicamarcato.it | confirmed | Turning+milling mix; pitch loss-decomposition across two workstreams; tribal-knowledge capture via quality loop | **sent 2026-08-26** |
