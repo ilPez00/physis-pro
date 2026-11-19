@@ -264,6 +264,13 @@ pub async fn demo_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/demo.html"))
 }
 
+/// GET /chat — local LLM textbox for the provider cascade (LFM3 first when
+/// available). Type a message, hit Send, the server routes to the best
+/// available provider (LFM3 on 127.0.0.1:11435/11434 when present).
+pub async fn chat_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/chat.html"))
+}
+
 /// GET /study — the learning / teaching dashboard. A student's Study Log
 /// (timeline in order, files by type/directory, generated-vs-edited split,
 /// chronos study rhythms, place/date context) plus the elenchus argument

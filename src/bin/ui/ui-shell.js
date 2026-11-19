@@ -197,6 +197,7 @@ const PRODUCT_PAGES = [
   { href: '/console', label: 'Console', hint: 'operations — plant, timeline, meaning' },
   { href: '/agent',  label: 'Agent',   hint: 'orchestration — tools, OpenCode, coherence gate' },
   { href: '/study',  label: 'Study',   hint: 'learning — sessions and the study log' },
+  { href: '/chat',   label: 'Chat',   hint: 'local LLM textbox — LFM3 cascade' },
   { href: '/demo',   label: 'Demo',    hint: 'the guided walkthrough' },
   { href: '/settings', label: 'Settings', hint: 'install health · updates · licence · API playground' },
 ];

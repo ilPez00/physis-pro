@@ -815,6 +815,28 @@ impl ProviderCascade {
             });
         }
 
+        // ── Priority 21: local LFM3 via Ollama ─────────────────────────────────
+        let lfm3_url = std::env::var("LFM3_URL")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "http://localhost:11434/v1".into());
+        let lfm3_model = std::env::var("LFM3_MODEL")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "lfm3-1-7b".into());
+        cascade.add(ProviderConfig {
+            name: "lfm3".into(),
+            base_url: lfm3_url,
+            model: lfm3_model,
+            api_key: String::new(),
+            supports_vision: false,
+            supports_tools: false,
+            max_tokens: 4096,
+            timeout_secs: 120.0,
+        });
+
         // ── Keyless proxies (always added, lowest priority) ───────────────────
         let keyless: &[(&str, &str, &str)] = &[
             ("llm7", "https://llm7.io/v1", "gpt-4o"),
